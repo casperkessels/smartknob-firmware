@@ -26,10 +26,11 @@ LightSwitchApp::LightSwitchApp(SemaphoreHandle_t mutex, char *app_id_, char *fri
 
     LV_IMG_DECLARE(x80_lightbulb_outline);
     LV_IMG_DECLARE(x40_lightbulb_outline);
-    LV_IMG_DECLARE(x80_lightbulb_filled);
+    // LV_IMG_DECLARE(x80_lightbulb_filled);
+     LV_IMG_DECLARE(x80_fan_filled);
 
     big_icon = x80_lightbulb_outline;
-    big_icon_active = x80_lightbulb_filled;
+    big_icon_active = x80_fan_filled;
     small_icon = x40_lightbulb_outline;
 
     initScreen();
