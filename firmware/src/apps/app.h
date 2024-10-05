@@ -19,6 +19,7 @@ const char APP_SLUG_3D_PRINTER[48] = "3d_printer";
 const char APP_SLUG_LIGHT_DIMMER[48] = "light_dimmer";
 const char APP_SLUG_LIGHT_SWITCH[48] = "light_switch";
 const char APP_SLUG_STOPWATCH[48] = "stopwatch";
+const char APP_SLUG_CAR_CLIMATE[48] = "car_climate";
 
 enum SharedAppIds : int8_t
 {
@@ -30,6 +31,11 @@ enum SharedAppIds : int8_t
 class App
 {
 public:
+    // virtual void initScreen() = 0;
+    // virtual void updateDisplay(const PB_SmartKnobState &state) = 0;
+    // virtual int8_t navigationNext() = 0;
+    // virtual int8_t navigationBack() = 0;
+
     App(SemaphoreHandle_t mutex);
 
     App(SemaphoreHandle_t mutex, int8_t next, int8_t back);

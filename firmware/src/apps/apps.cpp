@@ -115,6 +115,12 @@ App *Apps::loadApp(uint8_t position, std::string app_slug, char *app_id, char *f
         add(position, app);
         return app;
     }
+    else if (app_slug.compare(APP_SLUG_CAR_CLIMATE) == 0)
+    {
+        CarClimateApp *app = new CarClimateApp(screen_mutex_, app_id, friendly_name, entity_id);
+        add(position, app);
+        return app;
+    }
     else
     {
         LOGW("Can't find app with slug '%s'", app_slug.c_str());
