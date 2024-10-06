@@ -74,7 +74,8 @@ int8_t CarClimateApp::navigationNext()
     }
 
     updateMotorConfig();
-    return 0;
+    updateLabels();
+    return DONT_NAVIGATE_UPDATE_MOTOR_CONFIG;
 }
 
 void CarClimateApp::updateLabels()
