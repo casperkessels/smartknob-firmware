@@ -11,6 +11,21 @@ CarClimateApp::CarClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *frien
     fan_speed = 2;
     current_setting = Setting::TEMPERATURE;
 
+    // Directly initialize each field of motor_config
+    motor_config.position = static_cast<int32_t>((temperature - 16.0f) * 2);               // position (0-28 range)
+    motor_config.min_position = 0;                                                         // min_position (16.0°C mapped to 0)
+    motor_config.max_position = 28;                                                        // max_position (30.0°C mapped to 28)
+    motor_config.position_width_radians = static_cast<int32_t>(9.0f * PI / 180.0f * 1000); // position_width_radians
+    motor_config.position_width_radians = static_cast<int32_t>(9.0f * PI / 180.0f * 1000); // position_width_radians
+    motor_config.detent_strength_unit = 2;
+    motor_config.endstop_strength_unit = 3;
+    motor_config.snap_point = 1.1f;
+    memset(motor_config.id, 0, sizeof(motor_config.id));           // Ensure ID is zeroed
+    strncpy(motor_config.id, app_id, sizeof(motor_config.id) - 1); // Set the app ID
+    motor_config.position_width_radians = 0;                       // position_width_radians
+    memset(motor_config.detent_positions, 0, sizeof(motor_config.detent_positions));
+    motor_config.detent_positions_count = 0;
+
     updateMotorConfig();
 
     LV_IMG_DECLARE(x80_thermostat);
@@ -35,7 +50,7 @@ void CarClimateApp::initScreen()
     lv_obj_center(temp_arc);
 
     temp_label = lv_label_create(screen);
-    lv_obj_set_style_text_font(temp_label, &roboto_light_mono_48pt, 0);
+    lv_obj_set_style_text_font(temp_label, &roboto_light_mono_24pt, 0);
     lv_obj_align(temp_label, LV_ALIGN_CENTER, 0, 0);
 
     // Initialize seat heat arc and label
@@ -48,7 +63,7 @@ void CarClimateApp::initScreen()
     lv_obj_center(seat_heat_arc);
 
     seat_heat_label = lv_label_create(screen);
-    lv_obj_set_style_text_font(seat_heat_label, &roboto_light_mono_48pt, 0);
+    lv_obj_set_style_text_font(seat_heat_label, &roboto_light_mono_24pt, 0);
     lv_obj_align(seat_heat_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(seat_heat_label, LV_OBJ_FLAG_HIDDEN);
 
@@ -62,7 +77,7 @@ void CarClimateApp::initScreen()
     lv_obj_center(fan_speed_arc);
 
     fan_speed_label = lv_label_create(screen);
-    lv_obj_set_style_text_font(fan_speed_label, &roboto_light_mono_48pt, 0);
+    lv_obj_set_style_text_font(fan_speed_label, &roboto_light_mono_24pt, 0);
     lv_obj_align(fan_speed_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(fan_speed_label, LV_OBJ_FLAG_HIDDEN);
 
@@ -83,28 +98,50 @@ void CarClimateApp::initScreen()
     updateModeIcons();
 }
 
+void CarClimateApp::updateMotorConfig()
+{
+    switch (current_setting)
+    {
+    case Setting::TEMPERATURE:
+        motor_config.min_position = 0;  // 16.0°C
+        motor_config.max_position = 28; // 30.0°C
+        motor_config.position = static_cast<int32_t>((temperature - 16.0f) * 2);
+        motor_config.position_width_radians = static_cast<int32_t>(9.0f * PI / 180.0f * 1000);
+        break;
+    case Setting::SEAT_HEAT:
+    case Setting::FAN_SPEED:
+        motor_config.min_position = 0;
+        motor_config.max_position = 3;
+        motor_config.position = current_setting == Setting::SEAT_HEAT ? seat_heat : fan_speed;
+        motor_config.position_width_radians = static_cast<int32_t>(60.0f * PI / 180.0f * 1000); // Larger steps for seat heat and fan speed
+        break;
+    }
+    motor_config.detent_strength_unit = 2;
+    motor_config.endstop_strength_unit = 3;
+    motor_config.snap_point = 1.1f;
+}
+
 EntityStateUpdate CarClimateApp::updateStateFromKnob(PB_SmartKnobState state)
 {
     SemaphoreGuard lock(mutex_);
-    int new_value = state.current_position;
+    LOGI("CarClimateApp::updateStateFromKnob called, position: %d", state.current_position);
 
     switch (current_setting)
     {
     case Setting::TEMPERATURE:
-        temperature = 16.0f + (new_value * 0.1f);
+        temperature = (state.current_position / 2.0f) + 16.0f;
         break;
     case Setting::SEAT_HEAT:
-        seat_heat = new_value;
+        seat_heat = state.current_position;
         break;
     case Setting::FAN_SPEED:
-        fan_speed = new_value;
+        fan_speed = state.current_position;
         break;
     }
 
     updateLabels();
     updateArcs();
     updateModeIcons();
-    updateMotorConfig();
 
     EntityStateUpdate new_state;
     sprintf(new_state.app_id, "%s", app_id);
@@ -126,53 +163,6 @@ EntityStateUpdate CarClimateApp::updateStateFromKnob(PB_SmartKnobState state)
     sprintf(new_state.app_slug, "%s", APP_SLUG_CAR_CLIMATE);
 
     return new_state;
-}
-
-void CarClimateApp::updateDisplay(const PB_SmartKnobState &state)
-{
-    SemaphoreGuard lock(mutex_);
-    int new_value = state.current_position;
-
-    switch (current_setting)
-    {
-    case Setting::TEMPERATURE:
-        temperature = 16.0f + (new_value * 0.1f);
-        break;
-    case Setting::SEAT_HEAT:
-        seat_heat = new_value;
-        break;
-    case Setting::FAN_SPEED:
-        fan_speed = new_value;
-        break;
-    }
-
-    updateLabels();
-    updateArcs();
-    updateModeIcons();
-    updateMotorConfig();
-    triggerMotorConfigUpdate();
-    updateStateFromKnob(state);
-}
-
-int8_t CarClimateApp::navigationNext()
-{
-    switch (current_setting)
-    {
-    case Setting::TEMPERATURE:
-        current_setting = Setting::SEAT_HEAT;
-        break;
-    case Setting::SEAT_HEAT:
-        current_setting = Setting::FAN_SPEED;
-        break;
-    case Setting::FAN_SPEED:
-        current_setting = Setting::TEMPERATURE;
-        break;
-    }
-    updateMotorConfig();
-    updateModeIcons();
-    updateLabels();
-    updateArcs();
-    return DONT_NAVIGATE_UPDATE_MOTOR_CONFIG;
 }
 
 void CarClimateApp::updateLabels()
@@ -200,28 +190,46 @@ void CarClimateApp::updateArcs()
     switch (current_setting)
     {
     case Setting::TEMPERATURE:
-        lv_arc_set_value(temp_arc, (int)(temperature * 10) - 160);
+        lv_arc_set_value(temp_arc, static_cast<int>((temperature - 16.0f) / 0.5f));
         break;
     case Setting::SEAT_HEAT:
-        lv_arc_set_value(seat_heat_arc, seat_heat);
+        lv_arc_set_value(seat_heat_arc, seat_heat * (270 / 3)); // Divide the 270 degree arc into 4 positions
         break;
     case Setting::FAN_SPEED:
-        lv_arc_set_value(fan_speed_arc, fan_speed);
+        lv_arc_set_value(fan_speed_arc, fan_speed * (270 / 3)); // Divide the 270 degree arc into 4 positions
         break;
     }
 }
 
+int8_t CarClimateApp::navigationNext()
+{
+    switch (current_setting)
+    {
+    case Setting::TEMPERATURE:
+        current_setting = Setting::SEAT_HEAT;
+        break;
+    case Setting::SEAT_HEAT:
+        current_setting = Setting::FAN_SPEED;
+        break;
+    case Setting::FAN_SPEED:
+        current_setting = Setting::TEMPERATURE;
+        break;
+    }
+    updateMotorConfig();
+    updateModeIcons();
+    updateLabels();
+    updateArcs();
+    triggerMotorConfigUpdate();
+    return DONT_NAVIGATE_UPDATE_MOTOR_CONFIG;
+}
+
 void CarClimateApp::updateModeIcons()
 {
-    for (int i = 0; i < 3; i++)
-    {
-        if (i == static_cast<int>(current_setting))
-        {
+    for (int i = 0; i < 3; i++) {
+        if (i == static_cast<int>(current_setting)) {
             lv_obj_clear_flag(mode_icons[i], LV_OBJ_FLAG_HIDDEN);
             lv_obj_set_style_img_recolor(mode_icons[i], lv_color_hex(0xFFFFFF), 0);
-        }
-        else
-        {
+        } else {
             lv_obj_add_flag(mode_icons[i], LV_OBJ_FLAG_HIDDEN);
         }
     }
@@ -233,8 +241,7 @@ void CarClimateApp::updateModeIcons()
     lv_obj_add_flag(seat_heat_label, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(fan_speed_label, LV_OBJ_FLAG_HIDDEN);
 
-    switch (current_setting)
-    {
+    switch (current_setting) {
     case Setting::TEMPERATURE:
         lv_obj_clear_flag(temp_arc, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(temp_label, LV_OBJ_FLAG_HIDDEN);
@@ -250,34 +257,15 @@ void CarClimateApp::updateModeIcons()
     }
 }
 
-void CarClimateApp::updateMotorConfig()
-{
-    switch (current_setting)
-    {
-    case Setting::TEMPERATURE:
-        motor_config.min_position = 0;
-        motor_config.max_position = 140;
-        motor_config.position = (int)((temperature - 16.0f) * 10);
-        motor_config.position_width_radians = 8.225806452 * PI / 120;
-        break;
-    case Setting::SEAT_HEAT:
-    case Setting::FAN_SPEED:
-        motor_config.min_position = 0;
-        motor_config.max_position = 3;
-        motor_config.position = current_setting == Setting::SEAT_HEAT ? seat_heat : fan_speed;
-        motor_config.position_width_radians = 8.225806452 * PI / 4; // Increased step size
-        break;
-    }
-    motor_config.position_nonce = motor_config.position;
-    motor_config.detent_strength_unit = 2;
-    motor_config.endstop_strength_unit = 1;
-    motor_config.snap_point = 1.1;
-}
-
 void CarClimateApp::triggerMotorConfigUpdate()
 {
     if (motor_notifier != nullptr)
     {
+        LOGI("Triggering motor config update");
         motor_notifier->requestUpdate(motor_config);
+    }
+    else
+    {
+        LOGE("motor_notifier is null");
     }
 }
