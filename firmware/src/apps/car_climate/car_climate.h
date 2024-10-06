@@ -7,7 +7,7 @@ class CarClimateApp : public App
 public:
     CarClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_name_, char *entity_id_);
     void initScreen() override;
-    EntityStateUpdate updateStateFromKnob(PB_SmartKnobState state) override;
+    void updateDisplay(const PB_SmartKnobState &state);
     int8_t navigationNext() override;
 
 private:
@@ -23,16 +23,17 @@ private:
     int seat_heat;
     int fan_speed;
 
+    lv_obj_t *temp_arc;
     lv_obj_t *temp_label;
-    lv_obj_t *seat_label;
-    lv_obj_t *fan_label;
-    lv_obj_t *arc;
-    lv_obj_t *icon_temp;
-    lv_obj_t *icon_seat;
-    lv_obj_t *icon_fan;
+    lv_obj_t *seat_heat_arc;
+    lv_obj_t *seat_heat_label;
+    lv_obj_t *fan_speed_arc;
+    lv_obj_t *fan_speed_label;
+    lv_obj_t *mode_icons[3];
 
     void updateLabels();
-    void updateArc();
-    void updateIcons();
+    void updateArcs();
+    void updateModeIcons();
     void updateMotorConfig();
+    void triggerMotorConfigUpdate();
 };
