@@ -8,7 +8,7 @@ CarClimateApp::CarClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *frien
 
     temperature = 20.0f;
     seat_heat = 0;
-    fan_speed = 0;
+    fan_speed = 2;
     current_setting = Setting::TEMPERATURE;
 
     updateMotorConfig();
