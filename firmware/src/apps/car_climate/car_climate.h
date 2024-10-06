@@ -18,10 +18,10 @@ private:
         SEAT_HEAT
     };
 
-    Setting current_setting = Setting::TEMPERATURE;
-    int temperature = 19;
-    int fan_speed = 3;
-    int seat_heat = 0;
+    Setting current_setting;
+    float temperature;
+    int fan_speed;
+    int seat_heat;
 
     lv_obj_t *temp_label;
     lv_obj_t *fan_label;
@@ -29,4 +29,5 @@ private:
 
     void updateLabels();
     void updateMotorConfig();
+    void triggerMotorConfigUpdate();
 };
