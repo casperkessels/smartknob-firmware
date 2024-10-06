@@ -9,6 +9,7 @@ public:
     void initScreen() override;
     void updateDisplay(const PB_SmartKnobState &state);
     int8_t navigationNext() override;
+    EntityStateUpdate updateStateFromKnob(PB_SmartKnobState state) override;
 
 private:
     enum class Setting

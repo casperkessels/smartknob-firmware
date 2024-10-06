@@ -83,6 +83,51 @@ void CarClimateApp::initScreen()
     updateModeIcons();
 }
 
+EntityStateUpdate CarClimateApp::updateStateFromKnob(PB_SmartKnobState state)
+{
+    SemaphoreGuard lock(mutex_);
+    int new_value = state.current_position;
+
+    switch (current_setting)
+    {
+    case Setting::TEMPERATURE:
+        temperature = 16.0f + (new_value * 0.1f);
+        break;
+    case Setting::SEAT_HEAT:
+        seat_heat = new_value;
+        break;
+    case Setting::FAN_SPEED:
+        fan_speed = new_value;
+        break;
+    }
+
+    updateLabels();
+    updateArcs();
+    updateModeIcons();
+    updateMotorConfig();
+
+    EntityStateUpdate new_state;
+    sprintf(new_state.app_id, "%s", app_id);
+    sprintf(new_state.entity_id, "%s", entity_id);
+
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(json, "temperature", temperature);
+    cJSON_AddNumberToObject(json, "seat_heat", seat_heat);
+    cJSON_AddNumberToObject(json, "fan_speed", fan_speed);
+    cJSON_AddNumberToObject(json, "current_setting", static_cast<int>(current_setting));
+
+    char *json_string = cJSON_PrintUnformatted(json);
+    sprintf(new_state.state, "%s", json_string);
+
+    cJSON_free(json_string);
+    cJSON_Delete(json);
+
+    new_state.changed = true;
+    sprintf(new_state.app_slug, "%s", APP_SLUG_CAR_CLIMATE);
+
+    return new_state;
+}
+
 void CarClimateApp::updateDisplay(const PB_SmartKnobState &state)
 {
     SemaphoreGuard lock(mutex_);
@@ -103,8 +148,10 @@ void CarClimateApp::updateDisplay(const PB_SmartKnobState &state)
 
     updateLabels();
     updateArcs();
+    updateModeIcons();
     updateMotorConfig();
     triggerMotorConfigUpdate();
+    updateStateFromKnob(state);
 }
 
 int8_t CarClimateApp::navigationNext()
@@ -123,6 +170,8 @@ int8_t CarClimateApp::navigationNext()
     }
     updateMotorConfig();
     updateModeIcons();
+    updateLabels();
+    updateArcs();
     return DONT_NAVIGATE_UPDATE_MOTOR_CONFIG;
 }
 
@@ -151,7 +200,7 @@ void CarClimateApp::updateArcs()
     switch (current_setting)
     {
     case Setting::TEMPERATURE:
-        lv_arc_set_value(temp_arc, (int)(temperature * 10));
+        lv_arc_set_value(temp_arc, (int)(temperature * 10) - 160);
         break;
     case Setting::SEAT_HEAT:
         lv_arc_set_value(seat_heat_arc, seat_heat);
@@ -177,11 +226,28 @@ void CarClimateApp::updateModeIcons()
         }
     }
 
-    lv_obj_clear_flag(current_setting == Setting::TEMPERATURE ? temp_arc : (current_setting == Setting::SEAT_HEAT ? seat_heat_arc : fan_speed_arc), LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(current_setting == Setting::TEMPERATURE ? temp_label : (current_setting == Setting::SEAT_HEAT ? seat_heat_label : fan_speed_label), LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(temp_arc, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(seat_heat_arc, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(fan_speed_arc, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(temp_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(seat_heat_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(fan_speed_label, LV_OBJ_FLAG_HIDDEN);
 
-    lv_obj_add_flag(current_setting != Setting::TEMPERATURE ? temp_arc : (current_setting != Setting::SEAT_HEAT ? seat_heat_arc : fan_speed_arc), LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(current_setting != Setting::TEMPERATURE ? temp_label : (current_setting != Setting::SEAT_HEAT ? seat_heat_label : fan_speed_label), LV_OBJ_FLAG_HIDDEN);
+    switch (current_setting)
+    {
+    case Setting::TEMPERATURE:
+        lv_obj_clear_flag(temp_arc, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(temp_label, LV_OBJ_FLAG_HIDDEN);
+        break;
+    case Setting::SEAT_HEAT:
+        lv_obj_clear_flag(seat_heat_arc, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(seat_heat_label, LV_OBJ_FLAG_HIDDEN);
+        break;
+    case Setting::FAN_SPEED:
+        lv_obj_clear_flag(fan_speed_arc, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(fan_speed_label, LV_OBJ_FLAG_HIDDEN);
+        break;
+    }
 }
 
 void CarClimateApp::updateMotorConfig()
@@ -191,7 +257,7 @@ void CarClimateApp::updateMotorConfig()
     case Setting::TEMPERATURE:
         motor_config.min_position = 0;
         motor_config.max_position = 140;
-        motor_config.position = (temperature - 16.0f) * 10;
+        motor_config.position = (int)((temperature - 16.0f) * 10);
         motor_config.position_width_radians = 8.225806452 * PI / 120;
         break;
     case Setting::SEAT_HEAT:
@@ -199,7 +265,7 @@ void CarClimateApp::updateMotorConfig()
         motor_config.min_position = 0;
         motor_config.max_position = 3;
         motor_config.position = current_setting == Setting::SEAT_HEAT ? seat_heat : fan_speed;
-        motor_config.position_width_radians = 8.225806452 * PI / 60;
+        motor_config.position_width_radians = 8.225806452 * PI / 4; // Increased step size
         break;
     }
     motor_config.position_nonce = motor_config.position;
