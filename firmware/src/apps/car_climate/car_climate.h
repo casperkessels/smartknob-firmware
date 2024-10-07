@@ -24,6 +24,15 @@ private:
     int seat_heat;
     int fan_speed;
 
+    int32_t temperature_position;
+    int32_t seat_heat_position;
+    int32_t fan_speed_position;
+
+    void setTemperature(float temp);
+    void setSeatHeat(int heat);
+    void setFanSpeed(int speed);
+    int32_t getPositionForCurrentSetting() const;
+
     lv_obj_t *temp_arc;
     lv_obj_t *temp_label;
     lv_obj_t *seat_heat_arc;
@@ -37,4 +46,5 @@ private:
     void updateModeIcons();
     void updateMotorConfig();
     void triggerMotorConfigUpdate();
+    void initializeMode();
 };
