@@ -11,20 +11,21 @@ CarClimateApp::CarClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *frien
     fan_speed = 2;
     current_setting = Setting::TEMPERATURE;
 
-    // Directly initialize each field of motor_config
-    motor_config.position = static_cast<int32_t>((temperature - 16.0f) * 2);               // position (0-28 range)
-    motor_config.min_position = 0;                                                         // min_position (16.0°C mapped to 0)
-    motor_config.max_position = 28;                                                        // max_position (30.0°C mapped to 28)
-    motor_config.position_width_radians = static_cast<int32_t>(9.0f * PI / 180.0f * 1000); // position_width_radians
-    motor_config.position_width_radians = static_cast<int32_t>(9.0f * PI / 180.0f * 1000); // position_width_radians
-    motor_config.detent_strength_unit = 2;
-    motor_config.endstop_strength_unit = 3;
+    // Initialize motor_config
+    motor_config.position = static_cast<int32_t>((temperature - 16.0f) * 2); // position (0-28 range)
+    motor_config.sub_position_unit = 0.0f;
+    motor_config.position_nonce = 0;
+    motor_config.min_position = 0;  // min_position (16.0°C mapped to 0)
+    motor_config.max_position = 28; // max_position (30.0°C mapped to 28)
+    motor_config.position_width_radians = 9.0f * PI / 180.0f;
+    motor_config.detent_strength_unit = 2.0f;
+    motor_config.endstop_strength_unit = 3.0f;
     motor_config.snap_point = 1.1f;
-    memset(motor_config.id, 0, sizeof(motor_config.id));           // Ensure ID is zeroed
-    strncpy(motor_config.id, app_id, sizeof(motor_config.id) - 1); // Set the app ID
-    motor_config.position_width_radians = 0;                       // position_width_radians
-    memset(motor_config.detent_positions, 0, sizeof(motor_config.detent_positions));
+    strncpy(motor_config.id, app_id, sizeof(motor_config.id) - 1);
+    motor_config.id[sizeof(motor_config.id) - 1] = '\0'; // Ensure null-termination
     motor_config.detent_positions_count = 0;
+    motor_config.snap_point_bias = 0.0f;
+    motor_config.led_hue = 0;
 
     updateMotorConfig();
 
@@ -225,11 +226,15 @@ int8_t CarClimateApp::navigationNext()
 
 void CarClimateApp::updateModeIcons()
 {
-    for (int i = 0; i < 3; i++) {
-        if (i == static_cast<int>(current_setting)) {
+    for (int i = 0; i < 3; i++)
+    {
+        if (i == static_cast<int>(current_setting))
+        {
             lv_obj_clear_flag(mode_icons[i], LV_OBJ_FLAG_HIDDEN);
             lv_obj_set_style_img_recolor(mode_icons[i], lv_color_hex(0xFFFFFF), 0);
-        } else {
+        }
+        else
+        {
             lv_obj_add_flag(mode_icons[i], LV_OBJ_FLAG_HIDDEN);
         }
     }
@@ -241,7 +246,8 @@ void CarClimateApp::updateModeIcons()
     lv_obj_add_flag(seat_heat_label, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(fan_speed_label, LV_OBJ_FLAG_HIDDEN);
 
-    switch (current_setting) {
+    switch (current_setting)
+    {
     case Setting::TEMPERATURE:
         lv_obj_clear_flag(temp_arc, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(temp_label, LV_OBJ_FLAG_HIDDEN);
