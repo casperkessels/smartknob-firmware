@@ -3,13 +3,7 @@
 
 enum ClimateAppMode : uint8_t
 {
-    CLIMATE_OFF = 0,
-    CLIMATE_HEAT,
-    CLIMATE_COOL,
-    CLIMATE_HEAT_COOL,
-    CLIMATE_AUTO,
-    CLIMATE_DRY,
-    CLIMATE_FAN_ONLY,
+    CLIMATE_AUTO = 0,
     CLIMATE_MODE_COUNT
 };
 

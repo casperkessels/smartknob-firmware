@@ -22,7 +22,7 @@ LightDimmerApp::LightDimmerApp(SemaphoreHandle_t mutex, char *app_id, char *frie
         0,
         current_brightness,
         0,
-        100,
+        3,  // Changed from 100 to 3 for 4 steps (0,1,2,3)
         2.4 * PI / 180,
         1,
         1,
@@ -33,6 +33,7 @@ LightDimmerApp::LightDimmerApp(SemaphoreHandle_t mutex, char *app_id, char *frie
         0,
         27,
     };
+
     strncpy(motor_config.id, app_id, sizeof(motor_config.id) - 1);
 
     num_positions = motor_config.max_position - motor_config.min_position;
@@ -347,6 +348,10 @@ EntityStateUpdate LightDimmerApp::updateStateFromKnob(PB_SmartKnobState state)
     //! TEMP FIX VALUE, REMOVE WHEN FIRST STATE VALUE THAT IS SENT ISNT THAT OF THE CURRENT POS FROM MENU WHERE USER INTERACTED TO GET TO THIS APP, create new issue?
     first_run = true;
     return new_state;
+
+    char buf_[16];
+    sprintf(buf_, "%d%%", (current_brightness * 100) / 3);  // Convert 0-3 to 0-100%
+    lv_label_set_text(percentage_label_, buf_);
 }
 
 int8_t LightDimmerApp::calculateAppHuePosition(int8_t position)
