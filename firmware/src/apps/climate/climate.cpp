@@ -74,6 +74,7 @@ ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_na
     initScreen();
     updateTemperatureArc();
     initLightSwitch();
+    updateModeIcon();
 }
 
 int8_t ClimateApp::navigationNext()
@@ -85,6 +86,8 @@ int8_t ClimateApp::navigationNext()
         // Switch to light switch mode
         lv_obj_add_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(light_screen, LV_OBJ_FLAG_HIDDEN);
+
+        updateModeIcon();
 
         // Update motor config for light switch - now with 4 steps (0-3)
         motor_config = PB_SmartKnobConfig{
@@ -114,6 +117,8 @@ int8_t ClimateApp::navigationNext()
         // Switch back to climate mode
         lv_obj_clear_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(light_screen, LV_OBJ_FLAG_HIDDEN);
+
+        updateModeIcon();
 
         // Restore climate motor config with its saved state
         motor_config = PB_SmartKnobConfig{
@@ -217,6 +222,19 @@ void ClimateApp::initLightSwitch()
     const int ARC_GAP = 10;
     const int ARC_SIZE = ARC_TOTAL_SPAN - ARC_GAP;
 
+    LV_IMG_DECLARE(x20_mode_auto);
+    LV_IMG_DECLARE(x20_mode_cool);
+
+    light_mode_auto_icon = lv_img_create(light_screen);
+    lv_img_set_src(light_mode_auto_icon, &x20_mode_auto);
+    lv_obj_add_style(light_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+    lv_obj_align(light_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -20, -10);
+
+    light_mode_cool_icon = lv_img_create(light_screen);
+    lv_img_set_src(light_mode_cool_icon, &x20_mode_cool);
+    lv_obj_add_style(light_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+    lv_obj_align_to(light_mode_cool_icon, light_mode_auto_icon, LV_ALIGN_OUT_RIGHT_MID, 20, 0);
+
     for (int i = 0; i < 4; i++)
     {
         arcs[i] = lv_arc_create(light_screen); // Make sure we use light_screen as parent
@@ -312,29 +330,28 @@ void ClimateApp::initScreen()
 
         LV_IMG_DECLARE(x20_mode_auto);
         LV_IMG_DECLARE(x20_mode_cool);
-        LV_IMG_DECLARE(x20_mode_heat);
-        LV_IMG_DECLARE(x20_mode_air);
+        // LV_IMG_DECLARE(x20_mode_heat);
+        // LV_IMG_DECLARE(x20_mode_air);
 
-        mode_auto_icon = lv_img_create(climate_screen);
-        lv_img_set_src(mode_auto_icon, &x20_mode_auto);
-        lv_obj_add_style(mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align(mode_auto_icon, LV_ALIGN_BOTTOM_MID, -30, -10);
-        lv_obj_set_style_img_recolor(mode_auto_icon, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), LV_PART_MAIN);
+        climate_mode_auto_icon = lv_img_create(climate_screen);
+        lv_img_set_src(climate_mode_auto_icon, &x20_mode_auto);
+        lv_obj_add_style(climate_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+        lv_obj_align(climate_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -20, -10);
 
-        mode_cool_icon = lv_img_create(climate_screen);
-        lv_img_set_src(mode_cool_icon, &x20_mode_cool);
-        lv_obj_add_style(mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align_to(mode_cool_icon, mode_auto_icon, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
+        climate_mode_cool_icon = lv_img_create(climate_screen);
+        lv_img_set_src(climate_mode_cool_icon, &x20_mode_cool);
+        lv_obj_add_style(climate_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+        lv_obj_align_to(climate_mode_cool_icon, climate_mode_auto_icon, LV_ALIGN_OUT_RIGHT_MID, 20, 0);
 
-        mode_heat_icon = lv_img_create(climate_screen);
-        lv_img_set_src(mode_heat_icon, &x20_mode_heat);
-        lv_obj_add_style(mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align_to(mode_heat_icon, mode_cool_icon, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
+        // mode_heat_icon = lv_img_create(climate_screen);
+        // lv_img_set_src(mode_heat_icon, &x20_mode_heat);
+        // lv_obj_add_style(mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+        // lv_obj_align_to(mode_heat_icon, mode_cool_icon, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
 
-        mode_air_icon = lv_img_create(climate_screen);
-        lv_img_set_src(mode_air_icon, &x20_mode_air);
-        lv_obj_add_style(mode_air_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align_to(mode_air_icon, mode_heat_icon, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
+        // mode_air_icon = lv_img_create(climate_screen);
+        // lv_img_set_src(mode_air_icon, &x20_mode_air);
+        // lv_obj_add_style(mode_air_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+        // lv_obj_align_to(mode_air_icon, mode_heat_icon, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
     }
     initTemperatureArc();
 }
@@ -503,63 +520,30 @@ void ClimateApp::updateTemperatureArc()
 
 void ClimateApp::updateModeIcon()
 {
-    // {
-    //     SemaphoreGuard lock(mutex_);
+    SemaphoreGuard lock(mutex_);
 
-    //     switch (mode)
-    //     {
-    //     case ClimateAppMode::CLIMATE_AUTO:
-    //         lv_obj_set_style_img_recolor(mode_cool_icon, inactive_color, LV_PART_MAIN);
-    //         lv_obj_set_style_img_recolor(mode_heat_icon, inactive_color, LV_PART_MAIN);
-    //         lv_obj_set_style_img_recolor(mode_air_icon, inactive_color, LV_PART_MAIN);
+    if (mode == ClimateAppMode::CLIMATE_AUTO)
+    {
+        // Climate mode active - update both screens
+        // Climate screen icons
+        lv_obj_set_style_img_recolor(climate_mode_auto_icon, auto_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(climate_mode_cool_icon, inactive_color, LV_PART_MAIN);
 
-    //         if (current_temperature < target_temperature)
-    //         {
-    //             lv_obj_set_style_img_recolor(mode_heat_icon, heat_active_color, LV_PART_MAIN);
-    //             // lv_label_set_text(state_label, "Heating");
-    //         }
-    //         else if (current_temperature > target_temperature)
-    //         {
-    //             lv_obj_set_style_img_recolor(mode_cool_icon, cool_active_color, LV_PART_MAIN);
-    //             // lv_label_set_text(state_label, "Cooling");
-    //         }
-    //         else if (current_temperature == target_temperature)
-    //         {
-    //             lv_obj_set_style_img_recolor(mode_air_icon, air_active_color, LV_PART_MAIN);
-    //             // lv_label_set_text(state_label, "idle");
-    //         }
+        // Light screen icons
+        lv_obj_set_style_img_recolor(light_mode_auto_icon, auto_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(light_mode_cool_icon, inactive_color, LV_PART_MAIN);
+    }
+    else
+    {
+        // Light switch mode active - update both screens
+        // Climate screen icons
+        lv_obj_set_style_img_recolor(climate_mode_auto_icon, inactive_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(climate_mode_cool_icon, cool_active_color, LV_PART_MAIN);
 
-    //         lv_obj_set_style_img_recolor(mode_auto_icon, auto_active_color, LV_PART_MAIN);
-    //         break;
-    //     case ClimateAppMode::CLIMATE_COOL:
-    //         lv_obj_set_style_img_recolor(mode_heat_icon, inactive_color, LV_PART_MAIN);
-    //         lv_obj_set_style_img_recolor(mode_air_icon, inactive_color, LV_PART_MAIN);
-    //         lv_obj_set_style_img_recolor(mode_auto_icon, inactive_color, LV_PART_MAIN);
-
-    //         lv_obj_set_style_img_recolor(mode_cool_icon, cool_active_color, LV_PART_MAIN);
-    //         // lv_label_set_text(state_label, "Cooling");
-    //         break;
-    //     case ClimateAppMode::CLIMATE_HEAT:
-    //         lv_obj_set_style_img_recolor(mode_air_icon, inactive_color, LV_PART_MAIN);
-    //         lv_obj_set_style_img_recolor(mode_auto_icon, inactive_color, LV_PART_MAIN);
-    //         lv_obj_set_style_img_recolor(mode_cool_icon, inactive_color, LV_PART_MAIN);
-
-    //         lv_obj_set_style_img_recolor(mode_heat_icon, heat_active_color, LV_PART_MAIN);
-    //         // lv_label_set_text(state_label, "Heating");
-    //         break;
-    //     case ClimateAppMode::CLIMATE_FAN_ONLY:
-    //         lv_obj_set_style_img_recolor(mode_auto_icon, inactive_color, LV_PART_MAIN);
-    //         lv_obj_set_style_img_recolor(mode_cool_icon, inactive_color, LV_PART_MAIN);
-    //         lv_obj_set_style_img_recolor(mode_heat_icon, inactive_color, LV_PART_MAIN);
-
-    //         lv_obj_set_style_img_recolor(mode_air_icon, air_active_color, LV_PART_MAIN);
-    //         // lv_label_set_text(state_label, "idle");
-    //         break;
-    //     }
-
-    //     // lv_obj_align_to(state_label, target_temp_label, LV_ALIGN_OUT_TOP_MID, 0, -2);
-    //     lv_obj_align_to(current_temp_label, target_temp_label, LV_ALIGN_OUT_BOTTOM_MID, 0, -4);
-    // }
+        // Light screen icons
+        lv_obj_set_style_img_recolor(light_mode_auto_icon, inactive_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(light_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+    }
 }
 
 void ClimateApp::updateStateFromHASS(MQTTStateUpdate mqtt_state_update)

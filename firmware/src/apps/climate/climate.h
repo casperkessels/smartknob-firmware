@@ -77,4 +77,12 @@ private:
     const lv_color_t heat_active_color = LV_COLOR_MAKE(0xFF, 0x80, 0x00);
     const lv_color_t dark_heat_active_color = LV_COLOR_MAKE(0xC7, 0x6D, 0x12);
     const lv_color_t air_active_color = LV_COLOR_MAKE(0xB4, 0xFF, 0x00);
+
+    // Mode indicator icons for climate screen
+    lv_obj_t *climate_mode_auto_icon;
+    lv_obj_t *climate_mode_cool_icon;
+
+    // Mode indicator icons for light switch screen
+    lv_obj_t *light_mode_auto_icon;
+    lv_obj_t *light_mode_cool_icon;
 };
