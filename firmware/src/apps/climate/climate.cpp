@@ -40,40 +40,41 @@ ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_na
 
     // Create screens for both modes
     climate_screen = lv_obj_create(screen);
-    light_screen = lv_obj_create(screen);
+    fan_speed_screen = lv_obj_create(screen);
 
     // Remove all default styles that might cause borders or padding
     lv_obj_remove_style_all(climate_screen);
-    lv_obj_remove_style_all(light_screen);
+    lv_obj_remove_style_all(fan_speed_screen);
 
     // Set exact size to match display
     lv_obj_set_size(climate_screen, LV_HOR_RES, LV_VER_RES);
-    lv_obj_set_size(light_screen, LV_HOR_RES, LV_VER_RES);
+    lv_obj_set_size(fan_speed_screen, LV_HOR_RES, LV_VER_RES);
 
     // Set position to (0,0) to avoid any offsets
     lv_obj_set_pos(climate_screen, 0, 0);
-    lv_obj_set_pos(light_screen, 0, 0);
+    lv_obj_set_pos(fan_speed_screen, 0, 0);
 
     // Set background colors
     lv_obj_set_style_bg_color(climate_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
     lv_obj_set_style_bg_opa(climate_screen, LV_OPA_COVER, 0);
-    lv_obj_set_style_bg_color(light_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
-    lv_obj_set_style_bg_opa(light_screen, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(fan_speed_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
+    lv_obj_set_style_bg_opa(fan_speed_screen, LV_OPA_COVER, 0);
 
     // Remove any borders
     lv_obj_set_style_border_width(climate_screen, 0, 0);
-    lv_obj_set_style_border_width(light_screen, 0, 0);
+    lv_obj_set_style_border_width(fan_speed_screen, 0, 0);
 
     // Remove any padding
     lv_obj_set_style_pad_all(climate_screen, 0, 0);
-    lv_obj_set_style_pad_all(light_screen, 0, 0);
+    lv_obj_set_style_pad_all(fan_speed_screen, 0, 0);
 
-    // Hide light screen initially
-    lv_obj_add_flag(light_screen, LV_OBJ_FLAG_HIDDEN);
+    // Hide fan_speed screen initially
+    lv_obj_add_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
 
     initScreen();
     updateTemperatureArc();
-    initLightSwitch();
+    initFanSpeed();
+    initSeatHeating();
     updateModeIcon();
 }
 
@@ -81,46 +82,56 @@ int8_t ClimateApp::navigationNext()
 {
     if (mode == ClimateAppMode::CLIMATE_AUTO)
     {
-        mode = ClimateAppMode::LIGHT_SWITCH;
-
-        // Switch to light switch mode
+        mode = ClimateAppMode::FAN_SPEED;
         lv_obj_add_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(light_screen, LV_OBJ_FLAG_HIDDEN);
-
-        updateModeIcon();
-
-        // Update motor config for light switch - now with 4 steps (0-3)
+        lv_obj_clear_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
         motor_config = PB_SmartKnobConfig{
-            current_light_position,
+            current_fan_speed_position,
             0,
-            current_light_position,
+            current_fan_speed_position,
             0,
-            3, // Changed from 1 to 3 to allow for 4 positions (0,1,2,3)
-            25 * PI / 180,
-            2,
+            5, // 6 steps
+            20 * PI / 180,
+            1,
             1,
             1.1,
-            "light",
+            "fan_speed",
             0,
             {},
             0,
             27,
         };
     }
-    else
+    else if (mode == ClimateAppMode::FAN_SPEED)
+    {
+        mode = ClimateAppMode::SEAT_HEATING;
+        lv_obj_add_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
+        motor_config = PB_SmartKnobConfig{
+            current_seat_heating_position,
+            0,
+            current_seat_heating_position,
+            0,
+            3, // 4 steps
+            25 * PI / 180,
+            1,
+            1,
+            1.1,
+            "seat_heating",
+            0,
+            {},
+            0,
+            27,
+        };
+    }
+    else if (mode == ClimateAppMode::SEAT_HEATING)
     {
         mode = ClimateAppMode::CLIMATE_AUTO;
-
-        // Save light switch state
-        // light_saved_position = current_light_position;
-
-        // Switch back to climate mode
         lv_obj_clear_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(light_screen, LV_OBJ_FLAG_HIDDEN);
-
-        updateModeIcon();
-
-        // Restore climate motor config with its saved state
+        lv_obj_add_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
         motor_config = PB_SmartKnobConfig{
             climate_saved_position,
             0,
@@ -140,6 +151,7 @@ int8_t ClimateApp::navigationNext()
     }
 
     strncpy(motor_config.id, app_id, sizeof(motor_config.id) - 1);
+    updateModeIcon();
     return DONT_NAVIGATE_UPDATE_MOTOR_CONFIG;
 }
 
@@ -181,21 +193,21 @@ EntityStateUpdate ClimateApp::updateStateFromKnob(PB_SmartKnobState state)
             sprintf(new_state.app_slug, "%s", APP_SLUG_CLIMATE);
         }
     }
-    else
+    else if (mode == ClimateAppMode::SEAT_HEATING)
     {
-        // Light switch logic
-        current_light_position = state.current_position;
-        light_saved_position = current_light_position;
+        current_seat_heating_position = state.current_position;
+        seat_heating_saved_position = current_seat_heating_position;
 
-        if (last_light_position != current_light_position)
+        if (last_seat_heating_position != current_seat_heating_position)
         {
-            updateLightSwitch();
+            updateSeatHeating();
 
             sprintf(new_state.app_id, "%s", app_id);
             sprintf(new_state.entity_id, "%s", entity_id);
 
             cJSON *json = cJSON_CreateObject();
-            cJSON_AddBoolToObject(json, "state", light_state);
+            cJSON_AddBoolToObject(json, "state", current_seat_heating_position > 0);
+            cJSON_AddNumberToObject(json, "brightness", (current_seat_heating_position * 51)); // 0-255 range for 6 steps
 
             char *json_string = cJSON_PrintUnformatted(json);
             sprintf(new_state.state, "%s", json_string);
@@ -203,7 +215,34 @@ EntityStateUpdate ClimateApp::updateStateFromKnob(PB_SmartKnobState state)
             cJSON_free(json_string);
             cJSON_Delete(json);
 
-            last_light_position = current_light_position;
+            last_seat_heating_position = current_seat_heating_position;
+            new_state.changed = true;
+            sprintf(new_state.app_slug, "%s", APP_SLUG_LIGHT_SWITCH);
+        }
+    }
+    else
+    {
+        // Light switch logic
+        current_fan_speed_position = state.current_position;
+        fan_speed_saved_position = current_fan_speed_position;
+
+        if (last_fan_speed_position != current_fan_speed_position)
+        {
+            updateFanSpeed();
+
+            sprintf(new_state.app_id, "%s", app_id);
+            sprintf(new_state.entity_id, "%s", entity_id);
+
+            cJSON *json = cJSON_CreateObject();
+            cJSON_AddBoolToObject(json, "state", fan_speed_state);
+
+            char *json_string = cJSON_PrintUnformatted(json);
+            sprintf(new_state.state, "%s", json_string);
+
+            cJSON_free(json_string);
+            cJSON_Delete(json);
+
+            last_fan_speed_position = current_fan_speed_position;
             new_state.changed = true;
             sprintf(new_state.app_slug, "%s", APP_SLUG_LIGHT_SWITCH);
         }
@@ -213,80 +252,176 @@ EntityStateUpdate ClimateApp::updateStateFromKnob(PB_SmartKnobState state)
     return new_state;
 }
 
-void ClimateApp::initLightSwitch()
+void ClimateApp::initFanSpeed()
 {
     SemaphoreGuard lock(mutex_);
 
-    // Setup light switch UI elements
-    const int ARC_TOTAL_SPAN = 25; // Keep these values the same to maintain appearance
-    const int ARC_GAP = 10;
+    // Setup fan_speed switch UI elements
+    const int ARC_TOTAL_SPAN = 35; // Keep these values the same to maintain appearance
+    const int ARC_GAP = 20;
     const int ARC_SIZE = ARC_TOTAL_SPAN - ARC_GAP;
 
     LV_IMG_DECLARE(x20_mode_auto);
     LV_IMG_DECLARE(x20_mode_cool);
+    LV_IMG_DECLARE(x20_mode_heat);
 
-    light_mode_auto_icon = lv_img_create(light_screen);
-    lv_img_set_src(light_mode_auto_icon, &x20_mode_auto);
-    lv_obj_add_style(light_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-    lv_obj_align(light_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -20, -10);
+    fan_speed_mode_auto_icon = lv_img_create(fan_speed_screen);
+    lv_img_set_src(fan_speed_mode_auto_icon, &x20_mode_auto);
+    lv_obj_add_style(fan_speed_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+    lv_obj_align(fan_speed_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
 
-    light_mode_cool_icon = lv_img_create(light_screen);
-    lv_img_set_src(light_mode_cool_icon, &x20_mode_cool);
-    lv_obj_add_style(light_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-    lv_obj_align_to(light_mode_cool_icon, light_mode_auto_icon, LV_ALIGN_OUT_RIGHT_MID, 20, 0);
+    fan_speed_mode_cool_icon = lv_img_create(fan_speed_screen);
+    lv_img_set_src(fan_speed_mode_cool_icon, &x20_mode_cool);
+    lv_obj_add_style(fan_speed_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+    lv_obj_align(fan_speed_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
 
+    fan_speed_mode_heat_icon = lv_img_create(fan_speed_screen);
+    lv_img_set_src(fan_speed_mode_heat_icon, &x20_mode_heat);
+    lv_obj_add_style(fan_speed_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+    lv_obj_align(fan_speed_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
+
+    for (int i = 0; i < 6; i++)
+    {
+        fan_speed_arcs[i] = lv_arc_create(fan_speed_screen);
+        lv_obj_set_size(fan_speed_arcs[i], 210, 210);
+
+        int base_rotation = 270 - (ARC_TOTAL_SPAN * 3); // Adjusted for 6 arcs
+        int start_angle = i * ARC_TOTAL_SPAN;
+
+        lv_arc_set_rotation(fan_speed_arcs[i], base_rotation);
+        lv_arc_set_bg_angles(fan_speed_arcs[i], start_angle, start_angle + ARC_SIZE);
+        lv_arc_set_value(fan_speed_arcs[i], 100);
+        lv_obj_center(fan_speed_arcs[i]);
+
+        lv_obj_remove_style(fan_speed_arcs[i], NULL, LV_PART_KNOB);
+        lv_obj_set_style_arc_width(fan_speed_arcs[i], 24, LV_PART_MAIN);
+        lv_obj_set_style_arc_width(fan_speed_arcs[i], 24, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_inactive_color, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_inactive_color, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_rounded(fan_speed_arcs[i], true, LV_PART_MAIN);
+        lv_obj_set_style_arc_rounded(fan_speed_arcs[i], true, LV_PART_INDICATOR);
+    }
+
+    fan_speed_bulb = lv_img_create(fan_speed_screen);
+    lv_obj_remove_style_all(fan_speed_bulb); // Remove default styles
+    lv_img_set_src(fan_speed_bulb, &big_icon);
+    lv_obj_set_style_img_recolor_opa(fan_speed_bulb, LV_OPA_COVER, 0);
+    lv_obj_set_style_img_recolor(fan_speed_bulb, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), 0);
+    lv_obj_center(fan_speed_bulb);
+}
+
+void ClimateApp::updateFanSpeed()
+{
+    SemaphoreGuard lock(mutex_);
+
+    for (int i = 0; i < 6; i++)
+    {
+        lv_color_t color = (i <= current_fan_speed_position) ? arc_active_color : arc_inactive_color;
+        lv_obj_set_style_arc_color(fan_speed_arcs[i], color, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(fan_speed_arcs[i], color, LV_PART_INDICATOR);
+    }
+
+    if (current_fan_speed_position == 0)
+    {
+        lv_img_set_src(fan_speed_bulb, &big_icon);
+        lv_obj_set_style_bg_color(fan_speed_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
+    }
+    else
+    {
+        lv_img_set_src(fan_speed_bulb, &big_icon);
+        uint8_t brightness = ((current_fan_speed_position + 1) * 63);
+        lv_obj_set_style_bg_color(fan_speed_screen, LV_COLOR_MAKE(brightness / 3, brightness / 3, 0), 0);
+    }
+}
+
+void ClimateApp::initSeatHeating()
+{
+    SemaphoreGuard lock(mutex_);
+
+    seat_heating_screen = lv_obj_create(screen);
+    lv_obj_remove_style_all(seat_heating_screen);
+    lv_obj_set_size(seat_heating_screen, LV_HOR_RES, LV_VER_RES);
+    lv_obj_set_pos(seat_heating_screen, 0, 0);
+    lv_obj_set_style_bg_color(seat_heating_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
+    lv_obj_set_style_bg_opa(seat_heating_screen, LV_OPA_COVER, 0);
+    lv_obj_add_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
+
+    const int ARC_TOTAL_SPAN = 35;
+    const int ARC_GAP = 20;
+    const int ARC_SIZE = ARC_TOTAL_SPAN - ARC_GAP;
+
+    LV_IMG_DECLARE(x20_mode_auto);
+    LV_IMG_DECLARE(x20_mode_cool);
+    LV_IMG_DECLARE(x20_mode_heat);
+
+    seat_heating_mode_auto_icon = lv_img_create(seat_heating_screen);
+    lv_img_set_src(seat_heating_mode_auto_icon, &x20_mode_auto);
+    lv_obj_add_style(seat_heating_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+    lv_obj_align(seat_heating_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
+
+    seat_heating_mode_cool_icon = lv_img_create(seat_heating_screen);
+    lv_img_set_src(seat_heating_mode_cool_icon, &x20_mode_cool);
+    lv_obj_add_style(seat_heating_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+    lv_obj_align(seat_heating_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
+
+    seat_heating_mode_heat_icon = lv_img_create(seat_heating_screen);
+    lv_img_set_src(seat_heating_mode_heat_icon, &x20_mode_heat);
+    lv_obj_add_style(seat_heating_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+    lv_obj_align(seat_heating_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
+
+    // Create 6 arcs instead of 4
     for (int i = 0; i < 4; i++)
     {
-        arcs[i] = lv_arc_create(light_screen); // Make sure we use light_screen as parent
-        lv_obj_remove_style_all(arcs[i]);      // Remove default styles
-        lv_obj_set_size(arcs[i], 210, 210);
+
+        seat_heating_arcs[i] = lv_arc_create(seat_heating_screen); // Make sure we use fan_speed_screen as parent
+        lv_obj_remove_style_all(seat_heating_arcs[i]);             // Remove default styles
+        lv_obj_set_size(seat_heating_arcs[i], 210, 210);
 
         int base_rotation = 270 - (ARC_TOTAL_SPAN * 2);
         int start_angle = i * ARC_TOTAL_SPAN;
 
-        lv_arc_set_rotation(arcs[i], base_rotation);
-        lv_arc_set_bg_angles(arcs[i], start_angle, start_angle + ARC_SIZE);
-        lv_arc_set_value(arcs[i], 100);
-        lv_obj_center(arcs[i]);
+        lv_arc_set_rotation(seat_heating_arcs[i], base_rotation);
+        lv_arc_set_bg_angles(seat_heating_arcs[i], start_angle, start_angle + ARC_SIZE);
+        lv_arc_set_value(seat_heating_arcs[i], 100);
+        lv_obj_center(seat_heating_arcs[i]);
 
-        lv_obj_remove_style(arcs[i], NULL, LV_PART_KNOB);
-        lv_obj_set_style_arc_width(arcs[i], 24, LV_PART_MAIN);
-        lv_obj_set_style_arc_width(arcs[i], 24, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_color(arcs[i], arc_inactive_color, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(arcs[i], arc_inactive_color, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_rounded(arcs[i], true, LV_PART_MAIN);
-        lv_obj_set_style_arc_rounded(arcs[i], true, LV_PART_INDICATOR);
+        lv_obj_remove_style(seat_heating_arcs[i], NULL, LV_PART_KNOB);
+        lv_obj_set_style_arc_width(seat_heating_arcs[i], 24, LV_PART_MAIN);
+        lv_obj_set_style_arc_width(seat_heating_arcs[i], 24, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(seat_heating_arcs[i], arc_inactive_color, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(seat_heating_arcs[i], arc_inactive_color, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_rounded(seat_heating_arcs[i], true, LV_PART_MAIN);
+        lv_obj_set_style_arc_rounded(seat_heating_arcs[i], true, LV_PART_INDICATOR);
     }
 
-    light_bulb = lv_img_create(light_screen);
-    lv_obj_remove_style_all(light_bulb); // Remove default styles
-    lv_img_set_src(light_bulb, &big_icon);
-    lv_obj_set_style_img_recolor_opa(light_bulb, LV_OPA_COVER, 0);
-    lv_obj_set_style_img_recolor(light_bulb, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), 0);
-    lv_obj_center(light_bulb);
+    seat_heating_bulb = lv_img_create(seat_heating_screen);
+    lv_img_set_src(seat_heating_bulb, &big_icon);
+    lv_obj_set_style_img_recolor_opa(seat_heating_bulb, LV_OPA_COVER, 0);
+    lv_obj_set_style_img_recolor(seat_heating_bulb, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), 0);
+    lv_obj_center(seat_heating_bulb);
 }
 
-void ClimateApp::updateLightSwitch()
+void ClimateApp::updateSeatHeating()
 {
     SemaphoreGuard lock(mutex_);
 
     for (int i = 0; i < 4; i++)
     {
-        lv_color_t color = (i <= current_light_position) ? arc_active_color : arc_inactive_color;
-        lv_obj_set_style_arc_color(arcs[i], color, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(arcs[i], color, LV_PART_INDICATOR);
+        lv_color_t color = (i <= current_seat_heating_position) ? arc_active_color : arc_inactive_color;
+        lv_obj_set_style_arc_color(seat_heating_arcs[i], color, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(seat_heating_arcs[i], color, LV_PART_INDICATOR);
     }
 
-    if (current_light_position == 0)
+    if (current_seat_heating_position == 0)
     {
-        lv_img_set_src(light_bulb, &big_icon);
-        lv_obj_set_style_bg_color(light_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
+        lv_img_set_src(seat_heating_bulb, &big_icon);
+        lv_obj_set_style_bg_color(seat_heating_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
     }
     else
     {
-        lv_img_set_src(light_bulb, &big_icon);
-        uint8_t brightness = ((current_light_position + 1) * 63);
-        lv_obj_set_style_bg_color(light_screen, LV_COLOR_MAKE(brightness / 3, brightness / 3, 0), 0);
+        lv_img_set_src(seat_heating_bulb, &big_icon);
+        uint8_t brightness = ((current_seat_heating_position + 1) * 42); // Adjusted for 6 steps
+        lv_obj_set_style_bg_color(seat_heating_screen, LV_COLOR_MAKE(brightness / 3, brightness / 3, 0), 0);
     }
 }
 
@@ -330,23 +465,26 @@ void ClimateApp::initScreen()
 
         LV_IMG_DECLARE(x20_mode_auto);
         LV_IMG_DECLARE(x20_mode_cool);
-        // LV_IMG_DECLARE(x20_mode_heat);
+        LV_IMG_DECLARE(x20_mode_heat);
         // LV_IMG_DECLARE(x20_mode_air);
 
+        // Climate mode icon (leftmost)
         climate_mode_auto_icon = lv_img_create(climate_screen);
         lv_img_set_src(climate_mode_auto_icon, &x20_mode_auto);
         lv_obj_add_style(climate_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align(climate_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -20, -10);
+        lv_obj_align(climate_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
 
+        // Fan mode icon (middle)
         climate_mode_cool_icon = lv_img_create(climate_screen);
         lv_img_set_src(climate_mode_cool_icon, &x20_mode_cool);
         lv_obj_add_style(climate_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align_to(climate_mode_cool_icon, climate_mode_auto_icon, LV_ALIGN_OUT_RIGHT_MID, 20, 0);
+        lv_obj_align(climate_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
 
-        // mode_heat_icon = lv_img_create(climate_screen);
-        // lv_img_set_src(mode_heat_icon, &x20_mode_heat);
-        // lv_obj_add_style(mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        // lv_obj_align_to(mode_heat_icon, mode_cool_icon, LV_ALIGN_OUT_RIGHT_MID, 0, 0);
+        // Seat heating mode icon (rightmost)
+        climate_mode_heat_icon = lv_img_create(climate_screen);
+        lv_img_set_src(climate_mode_heat_icon, &x20_mode_heat);
+        lv_obj_add_style(climate_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
+        lv_obj_align(climate_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
 
         // mode_air_icon = lv_img_create(climate_screen);
         // lv_img_set_src(mode_air_icon, &x20_mode_air);
@@ -522,27 +660,38 @@ void ClimateApp::updateModeIcon()
 {
     SemaphoreGuard lock(mutex_);
 
-    if (mode == ClimateAppMode::CLIMATE_AUTO)
-    {
-        // Climate mode active - update both screens
-        // Climate screen icons
-        lv_obj_set_style_img_recolor(climate_mode_auto_icon, auto_active_color, LV_PART_MAIN);
-        lv_obj_set_style_img_recolor(climate_mode_cool_icon, inactive_color, LV_PART_MAIN);
+    // Set all icons on all screens to inactive color
+    lv_obj_set_style_img_recolor(climate_mode_auto_icon, inactive_color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(climate_mode_cool_icon, inactive_color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(climate_mode_heat_icon, inactive_color, LV_PART_MAIN);
 
-        // Light screen icons
-        lv_obj_set_style_img_recolor(light_mode_auto_icon, auto_active_color, LV_PART_MAIN);
-        lv_obj_set_style_img_recolor(light_mode_cool_icon, inactive_color, LV_PART_MAIN);
-    }
-    else
-    {
-        // Light switch mode active - update both screens
-        // Climate screen icons
-        lv_obj_set_style_img_recolor(climate_mode_auto_icon, inactive_color, LV_PART_MAIN);
-        lv_obj_set_style_img_recolor(climate_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(fan_speed_mode_auto_icon, inactive_color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(fan_speed_mode_cool_icon, inactive_color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(fan_speed_mode_heat_icon, inactive_color, LV_PART_MAIN);
 
-        // Light screen icons
-        lv_obj_set_style_img_recolor(light_mode_auto_icon, inactive_color, LV_PART_MAIN);
-        lv_obj_set_style_img_recolor(light_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(seat_heating_mode_auto_icon, inactive_color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(seat_heating_mode_cool_icon, inactive_color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(seat_heating_mode_heat_icon, inactive_color, LV_PART_MAIN);
+
+    // Then highlight the active mode on all screens
+    switch(mode) {
+        case ClimateAppMode::CLIMATE_AUTO:
+            lv_obj_set_style_img_recolor(climate_mode_auto_icon, auto_active_color, LV_PART_MAIN);
+            lv_obj_set_style_img_recolor(fan_speed_mode_auto_icon, auto_active_color, LV_PART_MAIN);
+            lv_obj_set_style_img_recolor(seat_heating_mode_auto_icon, auto_active_color, LV_PART_MAIN);
+            break;
+            
+        case ClimateAppMode::FAN_SPEED:
+            lv_obj_set_style_img_recolor(climate_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+            lv_obj_set_style_img_recolor(fan_speed_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+            lv_obj_set_style_img_recolor(seat_heating_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+            break;
+            
+        case ClimateAppMode::SEAT_HEATING:
+            lv_obj_set_style_img_recolor(climate_mode_heat_icon, heat_active_color, LV_PART_MAIN);
+            lv_obj_set_style_img_recolor(fan_speed_mode_heat_icon, heat_active_color, LV_PART_MAIN);
+            lv_obj_set_style_img_recolor(seat_heating_mode_heat_icon, heat_active_color, LV_PART_MAIN);
+            break;
     }
 }
 

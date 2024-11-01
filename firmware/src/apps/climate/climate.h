@@ -4,8 +4,9 @@
 enum ClimateAppMode : uint8_t
 {
     CLIMATE_AUTO = 0,
-    LIGHT_SWITCH = 1,
-    MODE_COUNT = 2
+    FAN_SPEED = 1,
+    SEAT_HEATING = 2,
+    MODE_COUNT = 3
 };
 
 class ClimateApp : public App
@@ -21,8 +22,10 @@ private:
     void initTemperatureArc();
     void updateTemperatureArc();
     void updateModeIcon();
-    void initLightSwitch();
-    void updateLightSwitch();
+    void initFanSpeed();
+    void updateFanSpeed();
+    void initSeatHeating();
+    void updateSeatHeating();
 
     float adjusted_sub_position = 0;
     bool first_run = false;
@@ -30,8 +33,8 @@ private:
     ClimateAppMode mode = ClimateAppMode::CLIMATE_AUTO;
     ClimateAppMode last_mode = ClimateAppMode::CLIMATE_AUTO;
 
-    uint8_t climate_saved_position = 25; // Default temperature
-    uint8_t light_saved_position = 0;    // Default light state
+    uint8_t climate_saved_position = 25;  // Default temperature
+    uint8_t fan_speed_saved_position = 0; // Default fan_speed state
 
     // Change these to uint8_t to match motor config
     uint8_t CLIMATE_APP_MIN_TEMP = 16;
@@ -40,10 +43,10 @@ private:
     uint8_t target_temperature = 25;
     uint8_t last_target_temperature = 25;
 
-    // Light switch state
-    uint8_t current_light_position = 0;
-    uint8_t last_light_position = 0;
-    bool light_state = false;
+    // fan_speed switch state
+    uint8_t current_fan_speed_position = 0;
+    uint8_t last_fan_speed_position = 0;
+    bool fan_speed_state = false;
 
     const uint16_t MIN_ANGLE = 0;
     const uint16_t MAX_ANGLE = 240;
@@ -63,10 +66,14 @@ private:
     lv_obj_t *temperature_arc;
     lv_obj_t **temperature_dots;
 
-    // Light switch UI elements
-    lv_obj_t *light_screen;
-    lv_obj_t *arcs[4];
-    lv_obj_t *light_bulb;
+    // fan_speed switch UI elements
+    lv_obj_t *fan_speed_screen;
+    lv_obj_t *fan_speed_arcs[6];
+    lv_obj_t *fan_speed_bulb;
+
+    lv_obj_t *seat_heating_screen;
+    lv_obj_t *seat_heating_arcs[4];
+    lv_obj_t *seat_heating_bulb;
 
     const lv_color_t arc_inactive_color = LV_COLOR_MAKE(0x47, 0x47, 0x47);
     const lv_color_t arc_active_color = LV_COLOR_MAKE(0xFF, 0xFF, 0xFF);
@@ -81,8 +88,21 @@ private:
     // Mode indicator icons for climate screen
     lv_obj_t *climate_mode_auto_icon;
     lv_obj_t *climate_mode_cool_icon;
+    lv_obj_t *climate_mode_heat_icon;
 
-    // Mode indicator icons for light switch screen
-    lv_obj_t *light_mode_auto_icon;
-    lv_obj_t *light_mode_cool_icon;
+    // Mode indicator icons for fan_speed switch screen
+    lv_obj_t *fan_speed_mode_auto_icon;
+    lv_obj_t *fan_speed_mode_cool_icon;
+    lv_obj_t *fan_speed_mode_heat_icon;
+
+    // Mode indicator icons for fan_speed switch 6 screen
+    lv_obj_t *seat_heating_mode_auto_icon;
+    lv_obj_t *seat_heating_mode_cool_icon;
+    lv_obj_t *seat_heating_mode_heat_icon;
+
+    // State variables for fan_speed switch 6
+    uint8_t current_seat_heating_position = 0;
+    uint8_t last_seat_heating_position = 0;
+    uint8_t seat_heating_saved_position = 0; // Default state
+    bool seat_heating_state = false;
 };
