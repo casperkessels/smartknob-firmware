@@ -1,5 +1,9 @@
 #include "climate.h"
 
+LV_IMG_DECLARE(x80_temp);
+LV_IMG_DECLARE(x80_fan);
+LV_IMG_DECLARE(x80_seat);
+
 ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_name_, char *entity_id_) : App(mutex)
 {
     sprintf(app_id, "%s", app_id_);
@@ -29,14 +33,16 @@ ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_na
     };
     strncpy(motor_config.id, app_id, sizeof(motor_config.id) - 1);
 
-    LV_IMG_DECLARE(x80_thermostat);
-    LV_IMG_DECLARE(x40_thermostat);
-    LV_IMG_DECLARE(x80_lightbulb_outline);
-    LV_IMG_DECLARE(x80_lightbulb_filled);
-    LV_IMG_DECLARE(x80_fan_filled);
+    // Load images
+    LV_IMG_DECLARE(x80_temp);
+    LV_IMG_DECLARE(x80_fan);
+    LV_IMG_DECLARE(x80_seat);
 
-    big_icon = x80_thermostat;
-    small_icon = x40_thermostat;
+    temp_img = &x80_temp;
+    fan_img = &x80_fan;
+    seat_img = &x80_seat;
+
+    big_icon = x80_temp;
 
     // Create screens for both modes
     climate_screen = lv_obj_create(screen);
@@ -80,12 +86,14 @@ ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_na
 
 int8_t ClimateApp::navigationNext()
 {
+
     if (mode == ClimateAppMode::CLIMATE_AUTO)
     {
         mode = ClimateAppMode::FAN_SPEED;
         lv_obj_add_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
+        // lv_img_set_src(fan_speed_bulb, &fan_img);
         motor_config = PB_SmartKnobConfig{
             current_fan_speed_position,
             0,
@@ -102,6 +110,7 @@ int8_t ClimateApp::navigationNext()
             0,
             27,
         };
+        big_icon = x80_fan;
     }
     else if (mode == ClimateAppMode::FAN_SPEED)
     {
@@ -109,6 +118,7 @@ int8_t ClimateApp::navigationNext()
         lv_obj_add_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
+        // lv_img_set_src(seat_heating_bulb, &seat_img);
         motor_config = PB_SmartKnobConfig{
             current_seat_heating_position,
             0,
@@ -125,6 +135,7 @@ int8_t ClimateApp::navigationNext()
             0,
             27,
         };
+        big_icon = x80_seat;
     }
     else if (mode == ClimateAppMode::SEAT_HEATING)
     {
@@ -132,6 +143,7 @@ int8_t ClimateApp::navigationNext()
         lv_obj_clear_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
+        // lv_img_set_src(target_temp_label, &temp_img);
         motor_config = PB_SmartKnobConfig{
             climate_saved_position,
             0,
@@ -148,6 +160,7 @@ int8_t ClimateApp::navigationNext()
             0,
             27,
         };
+        big_icon = x80_temp;
     }
 
     strncpy(motor_config.id, app_id, sizeof(motor_config.id) - 1);
@@ -261,22 +274,24 @@ void ClimateApp::initFanSpeed()
     const int ARC_GAP = 20;
     const int ARC_SIZE = ARC_TOTAL_SPAN - ARC_GAP;
 
-    LV_IMG_DECLARE(x20_mode_auto);
-    LV_IMG_DECLARE(x20_mode_cool);
-    LV_IMG_DECLARE(x20_mode_heat);
+    // lv_img_set_src(fan_speed_bulb, fan_img);
+
+    LV_IMG_DECLARE(x20_temp);
+    LV_IMG_DECLARE(x20_fan);
+    LV_IMG_DECLARE(x20_seat);
 
     fan_speed_mode_auto_icon = lv_img_create(fan_speed_screen);
-    lv_img_set_src(fan_speed_mode_auto_icon, &x20_mode_auto);
+    lv_img_set_src(fan_speed_mode_auto_icon, &x20_temp);
     lv_obj_add_style(fan_speed_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(fan_speed_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
 
     fan_speed_mode_cool_icon = lv_img_create(fan_speed_screen);
-    lv_img_set_src(fan_speed_mode_cool_icon, &x20_mode_cool);
+    lv_img_set_src(fan_speed_mode_cool_icon, &x20_fan);
     lv_obj_add_style(fan_speed_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(fan_speed_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
 
     fan_speed_mode_heat_icon = lv_img_create(fan_speed_screen);
-    lv_img_set_src(fan_speed_mode_heat_icon, &x20_mode_heat);
+    lv_img_set_src(fan_speed_mode_heat_icon, &x20_seat);
     lv_obj_add_style(fan_speed_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(fan_speed_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
 
@@ -338,6 +353,8 @@ void ClimateApp::initSeatHeating()
 {
     SemaphoreGuard lock(mutex_);
 
+    // lv_img_set_src(seat_heating_bulb, seat_img);
+
     seat_heating_screen = lv_obj_create(screen);
     lv_obj_remove_style_all(seat_heating_screen);
     lv_obj_set_size(seat_heating_screen, LV_HOR_RES, LV_VER_RES);
@@ -350,22 +367,22 @@ void ClimateApp::initSeatHeating()
     const int ARC_GAP = 20;
     const int ARC_SIZE = ARC_TOTAL_SPAN - ARC_GAP;
 
-    LV_IMG_DECLARE(x20_mode_auto);
-    LV_IMG_DECLARE(x20_mode_cool);
-    LV_IMG_DECLARE(x20_mode_heat);
+    LV_IMG_DECLARE(x20_temp);
+    LV_IMG_DECLARE(x20_fan);
+    LV_IMG_DECLARE(x20_seat);
 
     seat_heating_mode_auto_icon = lv_img_create(seat_heating_screen);
-    lv_img_set_src(seat_heating_mode_auto_icon, &x20_mode_auto);
+    lv_img_set_src(seat_heating_mode_auto_icon, &x20_temp);
     lv_obj_add_style(seat_heating_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(seat_heating_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
 
     seat_heating_mode_cool_icon = lv_img_create(seat_heating_screen);
-    lv_img_set_src(seat_heating_mode_cool_icon, &x20_mode_cool);
+    lv_img_set_src(seat_heating_mode_cool_icon, &x20_fan);
     lv_obj_add_style(seat_heating_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(seat_heating_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
 
     seat_heating_mode_heat_icon = lv_img_create(seat_heating_screen);
-    lv_img_set_src(seat_heating_mode_heat_icon, &x20_mode_heat);
+    lv_img_set_src(seat_heating_mode_heat_icon, &x20_seat);
     lv_obj_add_style(seat_heating_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(seat_heating_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
 
@@ -433,11 +450,13 @@ void ClimateApp::initScreen()
         target_temp_label = lv_label_create(climate_screen);
         current_temp_label = lv_label_create(climate_screen);
 
+        // big_icon = *temp_img;
+
         // All the mode icons should also be on climate_screen
-        mode_auto_icon = lv_img_create(climate_screen);
-        mode_cool_icon = lv_img_create(climate_screen);
-        mode_heat_icon = lv_img_create(climate_screen);
-        mode_air_icon = lv_img_create(climate_screen);
+        climate_mode_auto_icon = lv_img_create(climate_screen);
+        climate_mode_cool_icon = lv_img_create(climate_screen);
+        climate_mode_heat_icon = lv_img_create(climate_screen);
+        // climate_mode_air_icon = lv_img_create(climate_screen);
 
         target_temp_label = lv_label_create(climate_screen); // Changed from screen to climate_screen
         lv_obj_set_style_text_font(target_temp_label, &roboto_light_mono_48pt, LV_PART_MAIN);
@@ -463,26 +482,26 @@ void ClimateApp::initScreen()
         lv_label_set_text(current_temp_degree_symbol_label, "°");
         lv_obj_align_to(current_temp_degree_symbol_label, current_temp_label, LV_ALIGN_OUT_RIGHT_MID, -2, 0);
 
-        LV_IMG_DECLARE(x20_mode_auto);
-        LV_IMG_DECLARE(x20_mode_cool);
-        LV_IMG_DECLARE(x20_mode_heat);
+        LV_IMG_DECLARE(x20_temp);
+        LV_IMG_DECLARE(x20_fan);
+        LV_IMG_DECLARE(x20_seat);
         // LV_IMG_DECLARE(x20_mode_air);
 
         // Climate mode icon (leftmost)
         climate_mode_auto_icon = lv_img_create(climate_screen);
-        lv_img_set_src(climate_mode_auto_icon, &x20_mode_auto);
+        lv_img_set_src(climate_mode_auto_icon, &x20_temp);
         lv_obj_add_style(climate_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
         lv_obj_align(climate_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
 
         // Fan mode icon (middle)
         climate_mode_cool_icon = lv_img_create(climate_screen);
-        lv_img_set_src(climate_mode_cool_icon, &x20_mode_cool);
+        lv_img_set_src(climate_mode_cool_icon, &x20_fan);
         lv_obj_add_style(climate_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
         lv_obj_align(climate_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
 
         // Seat heating mode icon (rightmost)
         climate_mode_heat_icon = lv_img_create(climate_screen);
-        lv_img_set_src(climate_mode_heat_icon, &x20_mode_heat);
+        lv_img_set_src(climate_mode_heat_icon, &x20_seat);
         lv_obj_add_style(climate_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
         lv_obj_align(climate_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
 
@@ -674,24 +693,25 @@ void ClimateApp::updateModeIcon()
     lv_obj_set_style_img_recolor(seat_heating_mode_heat_icon, inactive_color, LV_PART_MAIN);
 
     // Then highlight the active mode on all screens
-    switch(mode) {
-        case ClimateAppMode::CLIMATE_AUTO:
-            lv_obj_set_style_img_recolor(climate_mode_auto_icon, auto_active_color, LV_PART_MAIN);
-            lv_obj_set_style_img_recolor(fan_speed_mode_auto_icon, auto_active_color, LV_PART_MAIN);
-            lv_obj_set_style_img_recolor(seat_heating_mode_auto_icon, auto_active_color, LV_PART_MAIN);
-            break;
-            
-        case ClimateAppMode::FAN_SPEED:
-            lv_obj_set_style_img_recolor(climate_mode_cool_icon, cool_active_color, LV_PART_MAIN);
-            lv_obj_set_style_img_recolor(fan_speed_mode_cool_icon, cool_active_color, LV_PART_MAIN);
-            lv_obj_set_style_img_recolor(seat_heating_mode_cool_icon, cool_active_color, LV_PART_MAIN);
-            break;
-            
-        case ClimateAppMode::SEAT_HEATING:
-            lv_obj_set_style_img_recolor(climate_mode_heat_icon, heat_active_color, LV_PART_MAIN);
-            lv_obj_set_style_img_recolor(fan_speed_mode_heat_icon, heat_active_color, LV_PART_MAIN);
-            lv_obj_set_style_img_recolor(seat_heating_mode_heat_icon, heat_active_color, LV_PART_MAIN);
-            break;
+    switch (mode)
+    {
+    case ClimateAppMode::CLIMATE_AUTO:
+        lv_obj_set_style_img_recolor(climate_mode_auto_icon, auto_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(fan_speed_mode_auto_icon, auto_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(seat_heating_mode_auto_icon, auto_active_color, LV_PART_MAIN);
+        break;
+
+    case ClimateAppMode::FAN_SPEED:
+        lv_obj_set_style_img_recolor(climate_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(fan_speed_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(seat_heating_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+        break;
+
+    case ClimateAppMode::SEAT_HEATING:
+        lv_obj_set_style_img_recolor(climate_mode_heat_icon, heat_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(fan_speed_mode_heat_icon, heat_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(seat_heating_mode_heat_icon, heat_active_color, LV_PART_MAIN);
+        break;
     }
 }
 
