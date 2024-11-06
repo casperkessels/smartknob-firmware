@@ -101,7 +101,7 @@ int8_t ClimateApp::navigationNext()
             0,
             4, // 5 steps
             20 * PI / 180,
-            1,
+            2,
             1,
             1.1,
             "fan_speed",
@@ -126,7 +126,7 @@ int8_t ClimateApp::navigationNext()
             0,
             3, // 4 steps
             25 * PI / 180,
-            1,
+            2,
             1,
             1.1,
             "seat_heating",
@@ -269,12 +269,9 @@ void ClimateApp::initFanSpeed()
 {
     SemaphoreGuard lock(mutex_);
 
-    // Setup fan_speed switch UI elements
-    const int ARC_TOTAL_SPAN = 35; // Keep these values the same to maintain appearance
-    const int ARC_GAP = 20;
-    const int ARC_SIZE = ARC_TOTAL_SPAN - ARC_GAP;
-
-    // lv_img_set_src(fan_speed_bulb, fan_img);
+    const int ARC_TOTAL_SPAN = MAX_ANGLE; // Use same constants as climate for consistency
+    uint16_t width = 220;
+    uint8_t arc_width = ARC_WIDTH;
 
     LV_IMG_DECLARE(x20_temp);
     LV_IMG_DECLARE(x20_fan);
@@ -295,26 +292,80 @@ void ClimateApp::initFanSpeed()
     lv_obj_add_style(fan_speed_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(fan_speed_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
 
-    for (int i = 0; i < 5; i++)
+    // Create main arc (background)
+    fan_speed_arc = lv_arc_create(fan_speed_screen);
+    lv_obj_remove_style(fan_speed_arc, NULL, LV_PART_KNOB);
+    lv_obj_set_size(fan_speed_arc, width, width);
+    lv_obj_center(fan_speed_arc);
+    lv_obj_set_style_arc_width(fan_speed_arc, arc_width, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(fan_speed_arc, arc_width, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(fan_speed_arc, dark_arc_bg, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(fan_speed_arc, cool_active_color, LV_PART_INDICATOR);
+    lv_arc_set_rotation(fan_speed_arc, ROTATION_ANGLE);
+    lv_arc_set_bg_angles(fan_speed_arc, 0, MAX_ANGLE);
+
+    // Create 5 dots to show speed levels
+    uint8_t dot_amount = 5; // -2, -1, 0, 1, 2
+    uint8_t diameter = 6;
+    uint8_t rotation = ROTATION_ANGLE;
+    uint16_t start_angle = MIN_ANGLE;
+    uint16_t end_angle = MAX_ANGLE;
+
+    fan_speed_dots = (lv_obj_t **)malloc(dot_amount * sizeof(lv_obj_t *));
+    assert(fan_speed_dots != NULL);
+
+    start_angle += rotation;
+    end_angle += rotation;
+
+    float angle_step = (float)(end_angle - start_angle) / (dot_amount - 1);
+
+    lv_coord_t screen_width = lv_obj_get_width(fan_speed_screen);
+    lv_coord_t screen_height = lv_obj_get_height(fan_speed_screen);
+    lv_coord_t center_x = screen_width / 2;
+    lv_coord_t center_y = screen_height / 2;
+
+    float radius = (width - arc_width) / 2.0;
+
+    // Create the speed indicator dots
+    for (int i = 0; i < dot_amount; i++)
     {
-        fan_speed_arcs[i] = lv_arc_create(fan_speed_screen);
-        lv_obj_set_size(fan_speed_arcs[i], 210, 210);
+        float angle = (start_angle + i * angle_step) * M_PI / 180.0;
+        int x = center_x + radius * cos(angle);
+        int y = center_y + radius * sin(angle);
 
-        int base_rotation = 285 - (ARC_TOTAL_SPAN * 2); // Adjusted for 5 arcs
-        int start_angle = i * ARC_TOTAL_SPAN;
+        lv_obj_t *circle = lvDrawCircle(diameter, fan_speed_screen);
+        lv_obj_set_pos(circle, x - diameter / 2, y - diameter / 2);
+        lv_obj_set_style_bg_color(circle, arc_inactive_color, LV_PART_MAIN);
 
-        lv_arc_set_rotation(fan_speed_arcs[i], base_rotation);
-        lv_arc_set_bg_angles(fan_speed_arcs[i], start_angle, start_angle + ARC_SIZE);
-        lv_arc_set_value(fan_speed_arcs[i], 100);
-        lv_obj_center(fan_speed_arcs[i]);
+        fan_speed_dots[i] = circle;
 
-        lv_obj_remove_style(fan_speed_arcs[i], NULL, LV_PART_KNOB);
-        lv_obj_set_style_arc_width(fan_speed_arcs[i], 24, LV_PART_MAIN);
-        lv_obj_set_style_arc_width(fan_speed_arcs[i], 24, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_inactive_color, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_inactive_color, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_rounded(fan_speed_arcs[i], true, LV_PART_MAIN);
-        lv_obj_set_style_arc_rounded(fan_speed_arcs[i], true, LV_PART_INDICATOR);
+        // Add min/max speed labels (optional)
+        if (i == 0)
+        {
+            // Slow fan label
+            int x_ = center_x + radius * cos(angle - ONE_STEP_ANGLE * DEG_TO_RAD);
+            int y_ = center_y + radius * sin(angle - ONE_STEP_ANGLE * DEG_TO_RAD);
+
+            lv_obj_t *slow_label = lv_label_create(fan_speed_screen);
+            lv_obj_set_style_text_font(slow_label, &roboto_semi_bold_mono_12pt, 0);
+            lv_label_set_text(slow_label, "-");
+            lv_obj_set_style_text_color(slow_label, cool_active_color, LV_PART_MAIN);
+            lv_obj_update_layout(slow_label);
+            lv_obj_set_pos(slow_label, x_ - lv_obj_get_width(slow_label) / 2, y_ - lv_obj_get_height(slow_label) / 2);
+        }
+        else if (i == dot_amount - 1)
+        {
+            // Fast fan label
+            int x_ = center_x + radius * cos(angle + ONE_STEP_ANGLE * DEG_TO_RAD);
+            int y_ = center_y + radius * sin(angle + ONE_STEP_ANGLE * DEG_TO_RAD);
+
+            lv_obj_t *fast_label = lv_label_create(fan_speed_screen);
+            lv_obj_set_style_text_font(fast_label, &roboto_semi_bold_mono_12pt, 0);
+            lv_label_set_text(fast_label, "+");
+            lv_obj_set_style_text_color(fast_label, heat_active_color, LV_PART_MAIN);
+            lv_obj_update_layout(fast_label);
+            lv_obj_set_pos(fast_label, x_ - lv_obj_get_width(fast_label) / 2, y_ - lv_obj_get_height(fast_label) / 2);
+        }
     }
 
     fan_speed_bulb = lv_img_create(fan_speed_screen);
@@ -331,38 +382,58 @@ void ClimateApp::updateFanSpeed()
     // Convert position 0-4 to fan speed -2 to +2
     int fan_speed = current_fan_speed_position - 2;
 
-    // First set all arcs to inactive
+    // Update arc indicator
+    uint16_t angle_mid = lerp(2, 0, 4, MIN_ANGLE, MAX_ANGLE); // Position of center point
+    uint16_t angle_current = lerp(current_fan_speed_position, 0, 4, MIN_ANGLE, MAX_ANGLE);
+
+    if (fan_speed == 0)
+    {
+        // Only show center dot for zero speed
+        lv_arc_set_angles(fan_speed_arc, angle_mid - 1, angle_mid + 1);
+    }
+    else if (fan_speed < 0)
+    {
+        // Show arc from current position to center
+        lv_arc_set_angles(fan_speed_arc, angle_current, angle_mid);
+        lv_obj_set_style_arc_color(fan_speed_arc, cool_active_color, LV_PART_INDICATOR);
+    }
+    else
+    {
+        // Show arc from center to current position
+        lv_arc_set_angles(fan_speed_arc, angle_mid, angle_current);
+        lv_obj_set_style_arc_color(fan_speed_arc, heat_active_color, LV_PART_INDICATOR);
+    }
+
+    // Update dots
     for (int i = 0; i < 5; i++)
     {
-        lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_inactive_color, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_inactive_color, LV_PART_INDICATOR);
-    }
-
-    // Always activate the middle arc (position 2)
-    lv_obj_set_style_arc_color(fan_speed_arcs[2], arc_active_color, LV_PART_MAIN);
-    lv_obj_set_style_arc_color(fan_speed_arcs[2], arc_active_color, LV_PART_INDICATOR);
-
-    // For negative speeds, activate arcs to the left of center
-    if (fan_speed < 0)
-    {
-        for (int i = 2; i >= (2 + fan_speed); i--)
+        if (i == 2)
         {
-            if (i >= 0)
-            { // Prevent array out of bounds
-                lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_active_color, LV_PART_MAIN);
-                lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_active_color, LV_PART_INDICATOR);
+            // Center dot always white
+            lv_obj_set_style_bg_color(fan_speed_dots[i], LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), LV_PART_MAIN);
+        }
+        else if (i < 2)
+        {
+            // Left side dots (negative speeds)
+            if (fan_speed < 0 && i >= (2 + fan_speed))
+            {
+                lv_obj_set_style_bg_color(fan_speed_dots[i], cool_active_color, LV_PART_MAIN);
+            }
+            else
+            {
+                lv_obj_set_style_bg_color(fan_speed_dots[i], arc_inactive_color, LV_PART_MAIN);
             }
         }
-    }
-    // For positive speeds, activate arcs to the right of center
-    else if (fan_speed > 0)
-    {
-        for (int i = 2; i <= (2 + fan_speed); i++)
+        else
         {
-            if (i < 5)
-            { // Prevent array out of bounds
-                lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_active_color, LV_PART_MAIN);
-                lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_active_color, LV_PART_INDICATOR);
+            // Right side dots (positive speeds)
+            if (fan_speed > 0 && i <= (2 + fan_speed))
+            {
+                lv_obj_set_style_bg_color(fan_speed_dots[i], heat_active_color, LV_PART_MAIN);
+            }
+            else
+            {
+                lv_obj_set_style_bg_color(fan_speed_dots[i], arc_inactive_color, LV_PART_MAIN);
             }
         }
     }
