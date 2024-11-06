@@ -99,7 +99,7 @@ int8_t ClimateApp::navigationNext()
             0,
             current_fan_speed_position,
             0,
-            5, // 6 steps
+            4, // 5 steps
             20 * PI / 180,
             1,
             1,
@@ -295,12 +295,12 @@ void ClimateApp::initFanSpeed()
     lv_obj_add_style(fan_speed_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(fan_speed_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 5; i++)
     {
         fan_speed_arcs[i] = lv_arc_create(fan_speed_screen);
         lv_obj_set_size(fan_speed_arcs[i], 210, 210);
 
-        int base_rotation = 270 - (ARC_TOTAL_SPAN * 3); // Adjusted for 6 arcs
+        int base_rotation = 285 - (ARC_TOTAL_SPAN * 2); // Adjusted for 5 arcs
         int start_angle = i * ARC_TOTAL_SPAN;
 
         lv_arc_set_rotation(fan_speed_arcs[i], base_rotation);
@@ -318,7 +318,6 @@ void ClimateApp::initFanSpeed()
     }
 
     fan_speed_bulb = lv_img_create(fan_speed_screen);
-    lv_obj_remove_style_all(fan_speed_bulb); // Remove default styles
     lv_img_set_src(fan_speed_bulb, &big_icon);
     lv_obj_set_style_img_recolor_opa(fan_speed_bulb, LV_OPA_COVER, 0);
     lv_obj_set_style_img_recolor(fan_speed_bulb, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), 0);
@@ -329,23 +328,43 @@ void ClimateApp::updateFanSpeed()
 {
     SemaphoreGuard lock(mutex_);
 
-    for (int i = 0; i < 6; i++)
+    // Convert position 0-4 to fan speed -2 to +2
+    int fan_speed = current_fan_speed_position - 2;
+
+    // First set all arcs to inactive
+    for (int i = 0; i < 5; i++)
     {
-        lv_color_t color = (i <= current_fan_speed_position) ? arc_active_color : arc_inactive_color;
-        lv_obj_set_style_arc_color(fan_speed_arcs[i], color, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(fan_speed_arcs[i], color, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_inactive_color, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_inactive_color, LV_PART_INDICATOR);
     }
 
-    if (current_fan_speed_position == 0)
+    // Always activate the middle arc (position 2)
+    lv_obj_set_style_arc_color(fan_speed_arcs[2], arc_active_color, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(fan_speed_arcs[2], arc_active_color, LV_PART_INDICATOR);
+
+    // For negative speeds, activate arcs to the left of center
+    if (fan_speed < 0)
     {
-        lv_img_set_src(fan_speed_bulb, &big_icon);
-        lv_obj_set_style_bg_color(fan_speed_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
+        for (int i = 2; i >= (2 + fan_speed); i--)
+        {
+            if (i >= 0)
+            { // Prevent array out of bounds
+                lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_active_color, LV_PART_MAIN);
+                lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_active_color, LV_PART_INDICATOR);
+            }
+        }
     }
-    else
+    // For positive speeds, activate arcs to the right of center
+    else if (fan_speed > 0)
     {
-        lv_img_set_src(fan_speed_bulb, &big_icon);
-        uint8_t brightness = ((current_fan_speed_position + 1) * 63);
-        lv_obj_set_style_bg_color(fan_speed_screen, LV_COLOR_MAKE(brightness / 3, brightness / 3, 0), 0);
+        for (int i = 2; i <= (2 + fan_speed); i++)
+        {
+            if (i < 5)
+            { // Prevent array out of bounds
+                lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_active_color, LV_PART_MAIN);
+                lv_obj_set_style_arc_color(fan_speed_arcs[i], arc_active_color, LV_PART_INDICATOR);
+            }
+        }
     }
 }
 
@@ -594,7 +613,8 @@ void ClimateApp::initTemperatureArc()
                 int x_ = center_x + radius * cos(angle - ONE_STEP_ANGLE * DEG_TO_RAD);
                 int y_ = center_y + radius * sin(angle - ONE_STEP_ANGLE * DEG_TO_RAD);
 
-                lv_obj_t *min_temp_label = lv_label_create(screen);
+                // Changed from screen to climate_screen
+                lv_obj_t *min_temp_label = lv_label_create(climate_screen);
                 lv_obj_set_style_text_font(min_temp_label, &roboto_semi_bold_mono_12pt, 0);
                 lv_label_set_text_fmt(min_temp_label, "%d", CLIMATE_APP_MIN_TEMP);
                 lv_obj_set_style_text_color(min_temp_label, cool_active_color, LV_PART_MAIN);
@@ -607,7 +627,8 @@ void ClimateApp::initTemperatureArc()
                 int x_ = center_x + radius * cos(angle + ONE_STEP_ANGLE * DEG_TO_RAD);
                 int y_ = center_y + radius * sin(angle + ONE_STEP_ANGLE * DEG_TO_RAD);
 
-                lv_obj_t *max_temp_label = lv_label_create(screen);
+                // Changed from screen to climate_screen
+                lv_obj_t *max_temp_label = lv_label_create(climate_screen);
                 lv_obj_set_style_text_font(max_temp_label, &roboto_semi_bold_mono_12pt, 0);
                 lv_label_set_text_fmt(max_temp_label, "%d", CLIMATE_APP_MAX_TEMP);
                 lv_obj_set_style_text_color(max_temp_label, heat_active_color, LV_PART_MAIN);

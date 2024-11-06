@@ -74,7 +74,7 @@ private:
 
     // Fan screen elements
     lv_obj_t *fan_speed_screen;
-    lv_obj_t *fan_speed_arcs[6];
+    lv_obj_t *fan_speed_arcs[5];
     lv_obj_t *fan_speed_bulb;
 
     // Seat heating elements
