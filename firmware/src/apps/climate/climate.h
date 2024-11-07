@@ -36,19 +36,19 @@ private:
     ClimateAppMode last_mode = ClimateAppMode::CLIMATE_AUTO;
 
     // Saved positions
-    uint8_t climate_saved_position = 25;
+    uint8_t climate_saved_position = 20;
     uint8_t fan_speed_saved_position = 0;
     uint8_t seat_heating_saved_position = 0;
 
     // Temperature ranges and current values
     const uint8_t CLIMATE_APP_MIN_TEMP = 16;
-    const uint8_t CLIMATE_APP_MAX_TEMP = 35;
+    const uint8_t CLIMATE_APP_MAX_TEMP = 25;
     uint8_t current_temperature = 20;
     uint8_t target_temperature = 25;
     uint8_t last_target_temperature = 25;
 
     // Fan speed states
-    uint8_t current_fan_speed_position = 0;
+    uint8_t current_fan_speed_position = 3;
     uint8_t last_fan_speed_position = 0;
     bool fan_speed_state = false;
 

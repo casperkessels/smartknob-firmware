@@ -388,8 +388,9 @@ void ClimateApp::updateFanSpeed()
 
     if (fan_speed == 0)
     {
-        // Only show center dot for zero speed
+        // Show green for neutral position
         lv_arc_set_angles(fan_speed_arc, angle_mid - 1, angle_mid + 1);
+        lv_obj_set_style_arc_color(fan_speed_arc, LV_COLOR_MAKE(0x00, 0xCC, 0x00), LV_PART_INDICATOR);
     }
     else if (fan_speed < 0)
     {
@@ -409,7 +410,7 @@ void ClimateApp::updateFanSpeed()
     {
         if (i == 2)
         {
-            // Center dot always white
+            // Center dot - green background when active, dot remains white for contrast
             lv_obj_set_style_bg_color(fan_speed_dots[i], LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), LV_PART_MAIN);
         }
         else if (i < 2)
@@ -457,7 +458,7 @@ void ClimateApp::initSeatHeating()
     const int SEGMENT_SPAN = HEAT_ARC_SPAN / 3; // Size of each heating segment
     const int BASE_ROTATION = 150;              // Starting angle
     const int LARGE_GAP = 24;                   // Gap between OFF arc and heating segments
-    const int SMALL_GAP = 12;                    // Small gap between heating segments
+    const int SMALL_GAP = 12;                   // Small gap between heating segments
 
     // Add mode icons
     LV_IMG_DECLARE(x20_temp);
