@@ -443,8 +443,6 @@ void ClimateApp::initSeatHeating()
 {
     SemaphoreGuard lock(mutex_);
 
-    // lv_img_set_src(seat_heating_bulb, seat_img);
-
     seat_heating_screen = lv_obj_create(screen);
     lv_obj_remove_style_all(seat_heating_screen);
     lv_obj_set_size(seat_heating_screen, LV_HOR_RES, LV_VER_RES);
@@ -453,10 +451,14 @@ void ClimateApp::initSeatHeating()
     lv_obj_set_style_bg_opa(seat_heating_screen, LV_OPA_COVER, 0);
     lv_obj_add_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
 
-    const int ARC_TOTAL_SPAN = 35;
-    const int ARC_GAP = 20;
-    const int ARC_SIZE = ARC_TOTAL_SPAN - ARC_GAP;
+    // Arc configuration
+    const int OFF_ARC_SPAN = 60;                // Arc size for OFF indicator
+    const int HEAT_ARC_SPAN = 180;              // Total arc size for heating levels
+    const int SEGMENT_SPAN = HEAT_ARC_SPAN / 3; // Size of each heating segment
+    const int BASE_ROTATION = 150;              // Starting angle
+    const int GAP = 20;                         // Gap between OFF arc and heating segments
 
+    // Add mode icons
     LV_IMG_DECLARE(x20_temp);
     LV_IMG_DECLARE(x20_fan);
     LV_IMG_DECLARE(x20_seat);
@@ -476,27 +478,54 @@ void ClimateApp::initSeatHeating()
     lv_obj_add_style(seat_heating_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
     lv_obj_align(seat_heating_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
 
-    // Create 6 arcs instead of 4
-    for (int i = 0; i < 4; i++)
+    // Create the OFF arc (index 0)
+    seat_heating_arcs[0] = lv_arc_create(seat_heating_screen);
+    lv_obj_remove_style_all(seat_heating_arcs[0]);
+    lv_obj_set_size(seat_heating_arcs[0], 210, 210);
+    lv_arc_set_rotation(seat_heating_arcs[0], BASE_ROTATION);
+    lv_arc_set_bg_angles(seat_heating_arcs[0], 0, OFF_ARC_SPAN);
+    lv_arc_set_value(seat_heating_arcs[0], 100);
+    lv_obj_center(seat_heating_arcs[0]);
+
+    lv_obj_remove_style(seat_heating_arcs[0], NULL, LV_PART_KNOB);
+    lv_obj_set_style_arc_width(seat_heating_arcs[0], 24, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(seat_heating_arcs[0], 24, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_rounded(seat_heating_arcs[0], true, LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(seat_heating_arcs[0], true, LV_PART_INDICATOR);
+
+    // Create heating level background arc
+    seat_heating_bg_arc = lv_arc_create(seat_heating_screen);
+    lv_obj_remove_style_all(seat_heating_bg_arc);
+    lv_obj_set_size(seat_heating_bg_arc, 210, 210);
+    lv_arc_set_rotation(seat_heating_bg_arc, BASE_ROTATION);
+    lv_arc_set_bg_angles(seat_heating_bg_arc, OFF_ARC_SPAN + GAP, OFF_ARC_SPAN + GAP + HEAT_ARC_SPAN);
+    lv_arc_set_value(seat_heating_bg_arc, 100);
+    lv_obj_center(seat_heating_bg_arc);
+
+    lv_obj_remove_style(seat_heating_bg_arc, NULL, LV_PART_KNOB);
+    lv_obj_set_style_arc_width(seat_heating_bg_arc, 24, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(seat_heating_bg_arc, 24, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_rounded(seat_heating_bg_arc, true, LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(seat_heating_bg_arc, true, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(seat_heating_bg_arc, arc_inactive_color, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(seat_heating_bg_arc, arc_inactive_color, LV_PART_INDICATOR);
+
+    // Create three heating segment arcs (indices 1-3)
+    for (int i = 1; i <= 3; i++)
     {
-
-        seat_heating_arcs[i] = lv_arc_create(seat_heating_screen); // Make sure we use fan_speed_screen as parent
-        lv_obj_remove_style_all(seat_heating_arcs[i]);             // Remove default styles
+        seat_heating_arcs[i] = lv_arc_create(seat_heating_screen);
+        lv_obj_remove_style_all(seat_heating_arcs[i]);
         lv_obj_set_size(seat_heating_arcs[i], 210, 210);
+        lv_arc_set_rotation(seat_heating_arcs[i], BASE_ROTATION);
 
-        int base_rotation = 270 - (ARC_TOTAL_SPAN * 2);
-        int start_angle = i * ARC_TOTAL_SPAN;
-
-        lv_arc_set_rotation(seat_heating_arcs[i], base_rotation);
-        lv_arc_set_bg_angles(seat_heating_arcs[i], start_angle, start_angle + ARC_SIZE);
+        int start_angle = OFF_ARC_SPAN + GAP + (SEGMENT_SPAN * (i - 1));
+        lv_arc_set_bg_angles(seat_heating_arcs[i], start_angle, start_angle + SEGMENT_SPAN);
         lv_arc_set_value(seat_heating_arcs[i], 100);
         lv_obj_center(seat_heating_arcs[i]);
 
         lv_obj_remove_style(seat_heating_arcs[i], NULL, LV_PART_KNOB);
         lv_obj_set_style_arc_width(seat_heating_arcs[i], 24, LV_PART_MAIN);
         lv_obj_set_style_arc_width(seat_heating_arcs[i], 24, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_color(seat_heating_arcs[i], arc_inactive_color, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(seat_heating_arcs[i], arc_inactive_color, LV_PART_INDICATOR);
         lv_obj_set_style_arc_rounded(seat_heating_arcs[i], true, LV_PART_MAIN);
         lv_obj_set_style_arc_rounded(seat_heating_arcs[i], true, LV_PART_INDICATOR);
     }
@@ -512,23 +541,34 @@ void ClimateApp::updateSeatHeating()
 {
     SemaphoreGuard lock(mutex_);
 
-    for (int i = 0; i < 4; i++)
+    // Update OFF arc color
+    lv_color_t off_arc_color = current_seat_heating_position == 0 ? lv_color_make(0x80, 0x80, 0x80) : lv_color_make(0x40, 0x40, 0x40);
+
+    lv_obj_set_style_arc_color(seat_heating_arcs[0], off_arc_color, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(seat_heating_arcs[0], off_arc_color, LV_PART_INDICATOR);
+
+    // Update heating segments - use a warm color for active segments
+    lv_color_t active_color = lv_color_make(0xFF, 0x80, 0x00); // Warm orange color
+
+    // Update each segment
+    for (int i = 1; i <= 3; i++)
     {
-        lv_color_t color = (i <= current_seat_heating_position) ? arc_active_color : arc_inactive_color;
-        lv_obj_set_style_arc_color(seat_heating_arcs[i], color, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(seat_heating_arcs[i], color, LV_PART_INDICATOR);
+        lv_color_t segment_color = (i <= current_seat_heating_position) ? active_color : arc_inactive_color;
+        lv_obj_set_style_arc_color(seat_heating_arcs[i], segment_color, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(seat_heating_arcs[i], segment_color, LV_PART_INDICATOR);
     }
 
+    // Update background color based on heating level
     if (current_seat_heating_position == 0)
     {
         lv_img_set_src(seat_heating_bulb, &big_icon);
-        lv_obj_set_style_bg_color(seat_heating_screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
+        lv_obj_set_style_bg_color(seat_heating_screen, lv_color_make(0x00, 0x00, 0x00), 0);
     }
     else
     {
         lv_img_set_src(seat_heating_bulb, &big_icon);
-        uint8_t brightness = ((current_seat_heating_position + 1) * 42); // Adjusted for 6 steps
-        lv_obj_set_style_bg_color(seat_heating_screen, LV_COLOR_MAKE(brightness / 3, brightness / 3, 0), 0);
+        uint8_t brightness = ((current_seat_heating_position) * 42);
+        lv_obj_set_style_bg_color(seat_heating_screen, lv_color_make(brightness / 2, brightness / 4, 0), 0);
     }
 }
 

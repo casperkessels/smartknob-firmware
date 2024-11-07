@@ -85,6 +85,7 @@ private:
     lv_obj_t *seat_heating_screen;
     lv_obj_t *seat_heating_arcs[4];
     lv_obj_t *seat_heating_bulb;
+    lv_obj_t *seat_heating_bg_arc;
 
     // Icons for each mode
     const lv_img_dsc_t *temp_img;
