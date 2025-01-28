@@ -4,6 +4,33 @@ LV_IMG_DECLARE(x80_temp);
 LV_IMG_DECLARE(x80_fan);
 LV_IMG_DECLARE(x80_seat);
 
+const lv_color_t CIRCLE_BG_ACTIVE = lv_color_hex(0x2B323B);
+const lv_color_t CIRCLE_BG_INACTIVE = lv_color_hex(0x101417);
+
+static lv_obj_t *create_icon_active_background(lv_obj_t *parent, lv_coord_t x_offset)
+{
+    lv_obj_t *circle = lv_obj_create(parent);
+    lv_obj_remove_style_all(circle);
+    lv_obj_set_size(circle, 40, 40); // Size for the circle background
+    lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(circle, CIRCLE_BG_ACTIVE, 0);
+    lv_obj_set_style_bg_opa(circle, LV_OPA_COVER, 0);
+    lv_obj_align(circle, LV_ALIGN_BOTTOM_MID, x_offset, -25);
+    return circle;
+}
+
+static lv_obj_t *create_icon_background(lv_obj_t *parent, lv_coord_t x_offset)
+{
+    lv_obj_t *circle = lv_obj_create(parent);
+    lv_obj_remove_style_all(circle);
+    lv_obj_set_size(circle, 40, 40); // Size for the circle background
+    lv_obj_set_style_radius(circle, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(circle, CIRCLE_BG_INACTIVE, 0);
+    lv_obj_set_style_bg_opa(circle, LV_OPA_COVER, 0);
+    lv_obj_align(circle, LV_ALIGN_BOTTOM_MID, x_offset, -20);
+    return circle;
+}
+
 ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_name_, char *entity_id_) : App(mutex)
 {
     sprintf(app_id, "%s", app_id_);
@@ -277,20 +304,23 @@ void ClimateApp::initFanSpeed()
     LV_IMG_DECLARE(x20_fan);
     LV_IMG_DECLARE(x20_seat);
 
-    fan_speed_mode_auto_icon = lv_img_create(fan_speed_screen);
+    lv_obj_t *circle1 = create_icon_background(fan_speed_screen, -44);
+    fan_speed_mode_auto_icon = lv_img_create(circle1);
     lv_img_set_src(fan_speed_mode_auto_icon, &x20_temp);
     lv_obj_add_style(fan_speed_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-    lv_obj_align(fan_speed_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
+    lv_obj_center(fan_speed_mode_auto_icon);
 
-    fan_speed_mode_cool_icon = lv_img_create(fan_speed_screen);
+    lv_obj_t *circle2 = create_icon_active_background(fan_speed_screen, 0);
+    fan_speed_mode_cool_icon = lv_img_create(circle2);
     lv_img_set_src(fan_speed_mode_cool_icon, &x20_fan);
     lv_obj_add_style(fan_speed_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-    lv_obj_align(fan_speed_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_center(fan_speed_mode_cool_icon);
 
-    fan_speed_mode_heat_icon = lv_img_create(fan_speed_screen);
+    lv_obj_t *circle3 = create_icon_background(fan_speed_screen, 44);
+    fan_speed_mode_heat_icon = lv_img_create(circle3);
     lv_img_set_src(fan_speed_mode_heat_icon, &x20_seat);
     lv_obj_add_style(fan_speed_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-    lv_obj_align(fan_speed_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
+    lv_obj_center(fan_speed_mode_heat_icon);
 
     // Create main arc (background)
     fan_speed_arc = lv_arc_create(fan_speed_screen);
@@ -346,12 +376,12 @@ void ClimateApp::initFanSpeed()
             int x_ = center_x + radius * cos(angle - ONE_STEP_ANGLE * DEG_TO_RAD);
             int y_ = center_y + radius * sin(angle - ONE_STEP_ANGLE * DEG_TO_RAD);
 
-            lv_obj_t *slow_label = lv_label_create(fan_speed_screen);
-            lv_obj_set_style_text_font(slow_label, &roboto_semi_bold_mono_12pt, 0);
-            lv_label_set_text(slow_label, "-");
-            lv_obj_set_style_text_color(slow_label, cool_active_color, LV_PART_MAIN);
-            lv_obj_update_layout(slow_label);
-            lv_obj_set_pos(slow_label, x_ - lv_obj_get_width(slow_label) / 2, y_ - lv_obj_get_height(slow_label) / 2);
+            // lv_obj_t *slow_label = lv_label_create(fan_speed_screen);
+            // lv_obj_set_style_text_font(slow_label, &roboto_semi_bold_mono_12pt, 0);
+            // lv_label_set_text(slow_label, "-");
+            // lv_obj_set_style_text_color(slow_label, cool_active_color, LV_PART_MAIN);
+            // lv_obj_update_layout(slow_label);
+            // lv_obj_set_pos(slow_label, x_ - lv_obj_get_width(slow_label) / 2, y_ - lv_obj_get_height(slow_label) / 2);
         }
         else if (i == dot_amount - 1)
         {
@@ -359,12 +389,12 @@ void ClimateApp::initFanSpeed()
             int x_ = center_x + radius * cos(angle + ONE_STEP_ANGLE * DEG_TO_RAD);
             int y_ = center_y + radius * sin(angle + ONE_STEP_ANGLE * DEG_TO_RAD);
 
-            lv_obj_t *fast_label = lv_label_create(fan_speed_screen);
-            lv_obj_set_style_text_font(fast_label, &roboto_semi_bold_mono_12pt, 0);
-            lv_label_set_text(fast_label, "+");
-            lv_obj_set_style_text_color(fast_label, heat_active_color, LV_PART_MAIN);
-            lv_obj_update_layout(fast_label);
-            lv_obj_set_pos(fast_label, x_ - lv_obj_get_width(fast_label) / 2, y_ - lv_obj_get_height(fast_label) / 2);
+            // lv_obj_t *fast_label = lv_label_create(fan_speed_screen);
+            // lv_obj_set_style_text_font(fast_label, &roboto_semi_bold_mono_12pt, 0);
+            // lv_label_set_text(fast_label, "+");
+            // lv_obj_set_style_text_color(fast_label, heat_active_color, LV_PART_MAIN);
+            // lv_obj_update_layout(fast_label);
+            // lv_obj_set_pos(fast_label, x_ - lv_obj_get_width(fast_label) / 2, y_ - lv_obj_get_height(fast_label) / 2);
         }
     }
 
@@ -465,20 +495,23 @@ void ClimateApp::initSeatHeating()
     LV_IMG_DECLARE(x20_fan);
     LV_IMG_DECLARE(x20_seat);
 
-    seat_heating_mode_auto_icon = lv_img_create(seat_heating_screen);
+    lv_obj_t *circle1 = create_icon_background(seat_heating_screen, -44);
+    seat_heating_mode_auto_icon = lv_img_create(circle1);
     lv_img_set_src(seat_heating_mode_auto_icon, &x20_temp);
     lv_obj_add_style(seat_heating_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-    lv_obj_align(seat_heating_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
+    lv_obj_center(seat_heating_mode_auto_icon);
 
-    seat_heating_mode_cool_icon = lv_img_create(seat_heating_screen);
+    lv_obj_t *circle2 = create_icon_background(seat_heating_screen, 0);
+    seat_heating_mode_cool_icon = lv_img_create(circle2);
     lv_img_set_src(seat_heating_mode_cool_icon, &x20_fan);
     lv_obj_add_style(seat_heating_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-    lv_obj_align(seat_heating_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_center(seat_heating_mode_cool_icon);
 
-    seat_heating_mode_heat_icon = lv_img_create(seat_heating_screen);
+    lv_obj_t *circle3 = create_icon_active_background(seat_heating_screen, 44);
+    seat_heating_mode_heat_icon = lv_img_create(circle3);
     lv_img_set_src(seat_heating_mode_heat_icon, &x20_seat);
     lv_obj_add_style(seat_heating_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-    lv_obj_align(seat_heating_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
+    lv_obj_center(seat_heating_mode_heat_icon);
 
     // Create the OFF arc (arc 0)
     seat_heating_arcs[0] = lv_arc_create(seat_heating_screen);
@@ -613,23 +646,27 @@ void ClimateApp::initScreen()
         LV_IMG_DECLARE(x20_seat);
         // LV_IMG_DECLARE(x20_mode_air);
 
-        // Climate mode icon (leftmost)
-        climate_mode_auto_icon = lv_img_create(climate_screen);
+        // Climate mode icons
+        // First icon (leftmost)
+        lv_obj_t *circle1 = create_icon_active_background(climate_screen, -44);
+        climate_mode_auto_icon = lv_img_create(circle1);
         lv_img_set_src(climate_mode_auto_icon, &x20_temp);
         lv_obj_add_style(climate_mode_auto_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align(climate_mode_auto_icon, LV_ALIGN_BOTTOM_MID, -40, -10);
+        lv_obj_center(climate_mode_auto_icon);
 
-        // Fan mode icon (middle)
-        climate_mode_cool_icon = lv_img_create(climate_screen);
+        // Second icon (middle)
+        lv_obj_t *circle2 = create_icon_background(climate_screen, 0);
+        climate_mode_cool_icon = lv_img_create(circle2);
         lv_img_set_src(climate_mode_cool_icon, &x20_fan);
         lv_obj_add_style(climate_mode_cool_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align(climate_mode_cool_icon, LV_ALIGN_BOTTOM_MID, 0, -10);
+        lv_obj_center(climate_mode_cool_icon);
 
-        // Seat heating mode icon (rightmost)
-        climate_mode_heat_icon = lv_img_create(climate_screen);
+        // Third icon (rightmost)
+        lv_obj_t *circle3 = create_icon_background(climate_screen, 44);
+        climate_mode_heat_icon = lv_img_create(circle3);
         lv_img_set_src(climate_mode_heat_icon, &x20_seat);
         lv_obj_add_style(climate_mode_heat_icon, (lv_style_t *)&SK_X20_ICON_STYLE, LV_PART_MAIN);
-        lv_obj_align(climate_mode_heat_icon, LV_ALIGN_BOTTOM_MID, 40, -10);
+        lv_obj_center(climate_mode_heat_icon);
 
         // mode_air_icon = lv_img_create(climate_screen);
         // lv_img_set_src(mode_air_icon, &x20_mode_air);
@@ -721,12 +758,12 @@ void ClimateApp::initTemperatureArc()
                 int y_ = center_y + radius * sin(angle - ONE_STEP_ANGLE * DEG_TO_RAD);
 
                 // Changed from screen to climate_screen
-                lv_obj_t *min_temp_label = lv_label_create(climate_screen);
-                lv_obj_set_style_text_font(min_temp_label, &roboto_semi_bold_mono_12pt, 0);
-                lv_label_set_text_fmt(min_temp_label, "%d", CLIMATE_APP_MIN_TEMP);
-                lv_obj_set_style_text_color(min_temp_label, cool_active_color, LV_PART_MAIN);
-                lv_obj_update_layout(min_temp_label);
-                lv_obj_set_pos(min_temp_label, x_ - lv_obj_get_width(min_temp_label) / 2, y_ - lv_obj_get_height(min_temp_label) / 2);
+                // lv_obj_t *min_temp_label = lv_label_create(climate_screen);
+                // lv_obj_set_style_text_font(min_temp_label, &roboto_semi_bold_mono_12pt, 0);
+                // lv_label_set_text_fmt(min_temp_label, "%d", CLIMATE_APP_MIN_TEMP);
+                // lv_obj_set_style_text_color(min_temp_label, cool_active_color, LV_PART_MAIN);
+                // lv_obj_update_layout(min_temp_label);
+                // lv_obj_set_pos(min_temp_label, x_ - lv_obj_get_width(min_temp_label) / 2, y_ - lv_obj_get_height(min_temp_label) / 2);
             }
             else if (i == dot_amount - 1)
             {
@@ -735,12 +772,12 @@ void ClimateApp::initTemperatureArc()
                 int y_ = center_y + radius * sin(angle + ONE_STEP_ANGLE * DEG_TO_RAD);
 
                 // Changed from screen to climate_screen
-                lv_obj_t *max_temp_label = lv_label_create(climate_screen);
-                lv_obj_set_style_text_font(max_temp_label, &roboto_semi_bold_mono_12pt, 0);
-                lv_label_set_text_fmt(max_temp_label, "%d", CLIMATE_APP_MAX_TEMP);
-                lv_obj_set_style_text_color(max_temp_label, heat_active_color, LV_PART_MAIN);
-                lv_obj_update_layout(max_temp_label);
-                lv_obj_set_pos(max_temp_label, x_ - lv_obj_get_width(max_temp_label) / 2, y_ - lv_obj_get_height(max_temp_label) / 2);
+                // lv_obj_t *max_temp_label = lv_label_create(climate_screen);
+                // lv_obj_set_style_text_font(max_temp_label, &roboto_semi_bold_mono_12pt, 0);
+                // lv_label_set_text_fmt(max_temp_label, "%d", CLIMATE_APP_MAX_TEMP);
+                // lv_obj_set_style_text_color(max_temp_label, heat_active_color, LV_PART_MAIN);
+                // lv_obj_update_layout(max_temp_label);
+                // lv_obj_set_pos(max_temp_label, x_ - lv_obj_get_width(max_temp_label) / 2, y_ - lv_obj_get_height(max_temp_label) / 2);
             }
         }
     }
@@ -807,7 +844,7 @@ void ClimateApp::updateModeIcon()
 {
     SemaphoreGuard lock(mutex_);
 
-    // Set all icons on all screens to inactive color
+    // Set all icons and circles to inactive state
     lv_obj_set_style_img_recolor(climate_mode_auto_icon, inactive_color, LV_PART_MAIN);
     lv_obj_set_style_img_recolor(climate_mode_cool_icon, inactive_color, LV_PART_MAIN);
     lv_obj_set_style_img_recolor(climate_mode_heat_icon, inactive_color, LV_PART_MAIN);
@@ -830,15 +867,15 @@ void ClimateApp::updateModeIcon()
         break;
 
     case ClimateAppMode::FAN_SPEED:
-        lv_obj_set_style_img_recolor(climate_mode_cool_icon, cool_active_color, LV_PART_MAIN);
-        lv_obj_set_style_img_recolor(fan_speed_mode_cool_icon, cool_active_color, LV_PART_MAIN);
-        lv_obj_set_style_img_recolor(seat_heating_mode_cool_icon, cool_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(climate_mode_cool_icon, auto_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(fan_speed_mode_cool_icon, auto_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(seat_heating_mode_cool_icon, auto_active_color, LV_PART_MAIN);
         break;
 
     case ClimateAppMode::SEAT_HEATING:
-        lv_obj_set_style_img_recolor(climate_mode_heat_icon, heat_active_color, LV_PART_MAIN);
-        lv_obj_set_style_img_recolor(fan_speed_mode_heat_icon, heat_active_color, LV_PART_MAIN);
-        lv_obj_set_style_img_recolor(seat_heating_mode_heat_icon, heat_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(climate_mode_heat_icon, auto_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(fan_speed_mode_heat_icon, auto_active_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(seat_heating_mode_heat_icon, auto_active_color, LV_PART_MAIN);
         break;
     }
 }
