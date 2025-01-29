@@ -37,9 +37,21 @@ ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_na
     sprintf(friendly_name, "%s", friendly_name_);
     sprintf(entity_id, "%s", entity_id_);
 
+    // Set default values
     current_temperature = 20;
-    target_temperature = 25;
-    uint8_t position_nonce = target_temperature;
+    target_temperature = 20; // Changed from 25 to 20
+    climate_saved_position = target_temperature;
+
+    // Set fan speed defaults
+    current_fan_speed_position = 3;
+    fan_speed_saved_position = 3;
+    last_fan_speed_position = 3;
+    fan_speed_state = true; // Since position 3 is "on"
+
+    // Set seat heating defaults (0 = off)
+    current_seat_heating_position = 0;
+    seat_heating_saved_position = 0;
+    last_seat_heating_position = 0;
 
     // Initialize default climate motor config
     motor_config = PB_SmartKnobConfig{
@@ -107,24 +119,24 @@ ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_na
     initScreen();
     updateTemperatureArc();
     initFanSpeed();
+    updateFanSpeed();
     initSeatHeating();
     updateModeIcon();
 }
 
 int8_t ClimateApp::navigationNext()
 {
-
     if (mode == ClimateAppMode::CLIMATE_AUTO)
     {
         mode = ClimateAppMode::FAN_SPEED;
         lv_obj_add_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
-        // lv_img_set_src(fan_speed_bulb, &fan_img);
+
         motor_config = PB_SmartKnobConfig{
-            current_fan_speed_position,
+            fan_speed_saved_position, // Use saved position instead of current
             0,
-            current_fan_speed_position,
+            fan_speed_saved_position, // Use saved position here too
             0,
             4, // 5 steps
             20 * PI / 180,
@@ -145,11 +157,11 @@ int8_t ClimateApp::navigationNext()
         lv_obj_add_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
-        // lv_img_set_src(seat_heating_bulb, &seat_img);
+
         motor_config = PB_SmartKnobConfig{
-            current_seat_heating_position,
+            seat_heating_saved_position, // Use saved position
             0,
-            current_seat_heating_position,
+            seat_heating_saved_position, // Use saved position
             0,
             3, // 4 steps
             25 * PI / 180,
@@ -170,11 +182,11 @@ int8_t ClimateApp::navigationNext()
         lv_obj_clear_flag(climate_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(fan_speed_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(seat_heating_screen, LV_OBJ_FLAG_HIDDEN);
-        // lv_img_set_src(target_temp_label, &temp_img);
+
         motor_config = PB_SmartKnobConfig{
-            climate_saved_position,
+            target_temperature, // Use target_temperature directly
             0,
-            climate_saved_position,
+            target_temperature, // Use target_temperature here too
             CLIMATE_APP_MIN_TEMP,
             CLIMATE_APP_MAX_TEMP,
             8.225806452 * PI / 120,
