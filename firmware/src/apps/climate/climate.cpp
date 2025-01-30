@@ -55,20 +55,20 @@ ClimateApp::ClimateApp(SemaphoreHandle_t mutex, char *app_id_, char *friendly_na
 
     // Initialize default climate motor config
     motor_config = PB_SmartKnobConfig{
-        target_temperature,
-        0,
-        target_temperature,
-        CLIMATE_APP_MIN_TEMP,
-        CLIMATE_APP_MAX_TEMP,
-        8.225806452 * PI / 120,
-        2,
-        1,
-        1.1,
-        "",
-        0,
-        {},
-        0,
-        27,
+        fan_speed_saved_position, // Current position of the knob
+        0,                        // Position offset (0 = no offset)
+        fan_speed_saved_position, // Position to snap to when released (nonce)
+        0,                        // Minimum position value
+        4,                        // Maximum position value (5 steps total: 0-4)
+        25 * PI / 180,            // Angle between each step in radians (20 degrees)
+        2,                        // Detent strength - how "strong" each notch feels
+        1,                        // Snap point - how far from center before snapping to next detent
+        1.1,                      // Elasticity - how "springy" the motion feels
+        "fan_speed",              // ID string for this configuration
+        0,                        // Number of custom detent positions (0 = use uniform)
+        {},                       // Array of custom detent position strengths
+        0,                        // Position update notification behavior
+        27,                       // Additional haptic features configuration
     };
     strncpy(motor_config.id, app_id, sizeof(motor_config.id) - 1);
 
@@ -139,7 +139,7 @@ int8_t ClimateApp::navigationNext()
             fan_speed_saved_position, // Use saved position here too
             0,
             4, // 5 steps
-            20 * PI / 180,
+            25 * PI / 180,
             2,
             1,
             1.1,
@@ -594,7 +594,7 @@ void ClimateApp::updateSeatHeating()
     // Update each heating segment
     for (int i = 1; i <= 3; i++)
     {
-        lv_color_t segment_color = (i <= current_seat_heating_position) ? active_color : inactive_color;
+        lv_color_t segment_color = (i <= current_seat_heating_position) ? heat_active_color : inactive_color;
         lv_obj_set_style_arc_color(seat_heating_arcs[i], segment_color, LV_PART_MAIN);
         lv_obj_set_style_arc_color(seat_heating_arcs[i], segment_color, LV_PART_INDICATOR);
     }
