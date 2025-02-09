@@ -13,10 +13,6 @@ protected:
     void initScreen();
 
 private:
-    lv_obj_t *arcs[4];                                                     // Array to hold our 4 arc objects
-    const lv_color_t arc_inactive_color = LV_COLOR_MAKE(0x47, 0x47, 0x47); // Grey
-    const lv_color_t arc_active_color = LV_COLOR_MAKE(0xFF, 0xFF, 0xFF);   // White
-
     lv_img_dsc_t big_icon_active;
 
     lv_obj_t *arc_;

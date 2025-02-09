@@ -7,13 +7,12 @@
 #include "../navigation/navigation.h"
 #include "./notify/os_config_notifier/os_config_notifier.h"
 
-#include "apps/light_dimmer/light_dimmer.h"
 #include "apps/light_switch/light_switch.h"
 #include "apps/settings/settings.h"
 #include "apps/stopwatch/stopwatch.h"
 #include "apps/blinds/blinds.h"
 #include "apps/climate/climate.h"
-#include "apps/car_climate/car_climate.h"
+#include "apps/controls/controls.h"
 
 #include "app_menu.h"
 

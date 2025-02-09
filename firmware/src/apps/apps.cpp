@@ -87,12 +87,6 @@ App *Apps::loadApp(uint8_t position, std::string app_slug, char *app_id, char *f
         add(position, app);
         return app;
     }
-    else if (app_slug.compare(APP_SLUG_LIGHT_DIMMER) == 0)
-    {
-        LightDimmerApp *app = new LightDimmerApp(screen_mutex_, app_id, friendly_name, entity_id);
-        add(position, app);
-        return app;
-    }
     else if (app_slug.compare(APP_SLUG_LIGHT_SWITCH) == 0)
     {
         LightSwitchApp *app = new LightSwitchApp(screen_mutex_, app_id, friendly_name, entity_id);
@@ -115,9 +109,9 @@ App *Apps::loadApp(uint8_t position, std::string app_slug, char *app_id, char *f
         add(position, app);
         return app;
     }
-    else if (app_slug.compare(APP_SLUG_CAR_CLIMATE) == 0)
+    else if (app_slug.compare(APP_SLUG_CLIMATE_CONTROLS) == 0)
     {
-        CarClimateApp *app = new CarClimateApp(screen_mutex_, app_id, friendly_name, entity_id);
+        ClimateControlApp *app = new ClimateControlApp(screen_mutex_, app_id, friendly_name, entity_id);
         add(position, app);
         return app;
     }

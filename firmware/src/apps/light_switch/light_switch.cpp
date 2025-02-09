@@ -11,11 +11,11 @@ LightSwitchApp::LightSwitchApp(SemaphoreHandle_t mutex, char *app_id_, char *fri
         0,
         current_position,
         0,
-        3, // Changed from 1 to 3 for 4 steps (0,1,2,3)
-        30 * PI / 180,
-        1,   // detent strength
-        1,   // endstop strength
-        1.1, // snap point
+        1,
+        60 * PI / 180,
+        1,
+        1,
+        0.55, // Note the snap point is slightly past the midpoint (0.5); compare to normal detents which use a snap point *past* the next value (i.e. > 1)
         "",
         0,
         {},
@@ -26,11 +26,10 @@ LightSwitchApp::LightSwitchApp(SemaphoreHandle_t mutex, char *app_id_, char *fri
 
     LV_IMG_DECLARE(x80_lightbulb_outline);
     LV_IMG_DECLARE(x40_lightbulb_outline);
-    // LV_IMG_DECLARE(x80_lightbulb_filled);
-    LV_IMG_DECLARE(x80_fan_filled);
+    LV_IMG_DECLARE(x80_lightbulb_filled);
 
     big_icon = x80_lightbulb_outline;
-    big_icon_active = x80_fan_filled;
+    big_icon_active = x80_lightbulb_filled;
     small_icon = x40_lightbulb_outline;
 
     initScreen();
@@ -40,48 +39,26 @@ void LightSwitchApp::initScreen()
 {
     SemaphoreGuard lock(mutex_);
 
-    // Constants for arc positioning
-    const int ARC_TOTAL_SPAN = 25;                 // Total degrees each arc section spans
-    const int ARC_GAP = 10;                        // Size of gap in degrees
-    const int ARC_SIZE = ARC_TOTAL_SPAN - ARC_GAP; // Actual size of each arc
+    arc_ = lv_arc_create(screen);
+    lv_obj_set_size(arc_, 210, 210);
+    lv_arc_set_rotation(arc_, 225);
+    lv_arc_set_bg_angles(arc_, 0, 90);
+    lv_arc_set_value(arc_, 0);
+    lv_obj_center(arc_);
 
-    // Create all 4 arcs
-    for (int i = 0; i < 4; i++)
-    {
-        arcs[i] = lv_arc_create(screen);
-        lv_obj_set_size(arcs[i], 210, 210);
+    lv_obj_set_style_arc_opa(arc_, LV_OPA_0, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(arc_, dark_arc_bg, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(arc_, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), LV_PART_KNOB);
 
-        // Calculate positioning
-        // Base rotation is still centered at 270 degrees (bottom)
-        int base_rotation = 270 - (ARC_TOTAL_SPAN * 2); // Start of first arc
-        int start_angle = i * ARC_TOTAL_SPAN;
+    lv_obj_set_style_arc_width(arc_, 24, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(arc_, 24, LV_PART_INDICATOR);
+    lv_obj_set_style_pad_all(arc_, -5, LV_PART_KNOB);
 
-        lv_arc_set_rotation(arcs[i], base_rotation);
-        lv_arc_set_bg_angles(arcs[i], start_angle, start_angle + ARC_SIZE); // Leave gap between arcs
-        lv_arc_set_value(arcs[i], 100);                                     // Full arc
-        lv_obj_center(arcs[i]);
-
-        // Remove the knob part
-        lv_obj_remove_style(arcs[i], NULL, LV_PART_KNOB);
-
-        // Set arc width
-        lv_obj_set_style_arc_width(arcs[i], 24, LV_PART_MAIN);
-        lv_obj_set_style_arc_width(arcs[i], 24, LV_PART_INDICATOR);
-
-        // Set initial colors
-        lv_obj_set_style_arc_color(arcs[i], arc_inactive_color, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(arcs[i], arc_inactive_color, LV_PART_INDICATOR);
-
-        // Optional: Round the ends of the arcs for a smoother look
-        lv_obj_set_style_arc_rounded(arcs[i], true, LV_PART_MAIN);
-        lv_obj_set_style_arc_rounded(arcs[i], true, LV_PART_INDICATOR);
-    }
-
-    // Create light bulb icon and label (rest of initialization remains the same)
     light_bulb = lv_img_create(screen);
     lv_img_set_src(light_bulb, &big_icon);
     lv_obj_set_style_img_recolor_opa(light_bulb, LV_OPA_COVER, 0);
     lv_obj_set_style_img_recolor(light_bulb, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF), 0);
+
     lv_obj_center(light_bulb);
 
     lv_obj_t *label = lv_label_create(screen);
@@ -111,60 +88,80 @@ EntityStateUpdate LightSwitchApp::updateStateFromKnob(PB_SmartKnobState state)
     }
 
     current_position = state.current_position;
-    sub_position_unit = state.sub_position_unit;
-
+    sub_position_unit = state.sub_position_unit * motor_config.position_width_radians;
+    // needed to next reload of App
     motor_config.position_nonce = current_position;
     motor_config.position = current_position;
 
-    if (last_position != current_position || first_run)
+    float vel = (sub_position_unit * 100 - previous_sub_position_unit * 100) / (millis() - last_updated_ms);
+
+    if (abs(vel) > 0.75f || current_position != last_position)
+    {
+        if (current_position == 0 && sub_position_unit < 0)
+        {
+            sub_position_unit = 0;
+        }
+        else if (current_position == 1 && sub_position_unit > 0)
+        {
+            sub_position_unit = 0;
+        }
+
+        SemaphoreGuard lock(mutex_);
+        if (current_position == 0)
+        {
+            lv_arc_set_value(arc_, abs(sub_position_unit) * 100);
+        }
+        else
+        {
+            lv_arc_set_value(arc_, 100 - abs(sub_position_unit) * 100);
+        }
+    }
+    else
+    {
+        if (current_position == 0)
+        {
+            lv_arc_set_value(arc_, 0);
+        }
+        else
+        {
+            lv_arc_set_value(arc_, 100);
+        }
+    }
+
+    if (last_position != current_position && first_run)
     {
         {
             SemaphoreGuard lock(mutex_);
-
-            // Update arcs based on position
-            for (int i = 0; i < 4; i++)
-            {
-                // Arc is active if its position is less than or equal to current position
-                lv_color_t color = (i <= current_position) ? arc_active_color : arc_inactive_color;
-                lv_obj_set_style_arc_color(arcs[i], color, LV_PART_MAIN);
-                lv_obj_set_style_arc_color(arcs[i], color, LV_PART_INDICATOR);
-            }
-
-            // Update light bulb and background
             if (current_position == 0)
             {
                 lv_img_set_src(light_bulb, &big_icon);
                 lv_obj_set_style_bg_color(screen, LV_COLOR_MAKE(0x00, 0x00, 0x00), 0);
+                lv_obj_set_style_arc_color(arc_, dark_arc_bg, LV_PART_MAIN);
             }
             else
             {
                 lv_img_set_src(light_bulb, &big_icon_active);
-                uint8_t brightness = ((current_position + 1) * 63); // Adjusted for 4 levels
-                lv_obj_set_style_bg_color(screen, LV_COLOR_MAKE(brightness / 3, brightness / 3, 0), 0);
+                lv_obj_set_style_bg_color(screen, LV_COLOR_MAKE(0xFF, 0x9E, 0x00), 0);
+                lv_obj_set_style_arc_color(arc_, lv_color_mix(dark_arc_bg, LV_COLOR_MAKE(0xFF, 0x9E, 0x00), 128), LV_PART_MAIN);
             }
         }
+        sprintf(new_state.app_id, "%s", app_id);
+        sprintf(new_state.entity_id, "%s", entity_id);
+        cJSON *json = cJSON_CreateObject();
+        cJSON_AddBoolToObject(json, "on", current_position > 0);
 
-        // Update state for external systems
-        if (first_run)
-        {
-            sprintf(new_state.app_id, "%s", app_id);
-            sprintf(new_state.entity_id, "%s", entity_id);
+        char *json_string = cJSON_PrintUnformatted(json);
+        sprintf(new_state.state, "%s", json_string);
 
-            cJSON *json = cJSON_CreateObject();
-            cJSON_AddNumberToObject(json, "level", current_position);
-
-            char *json_string = cJSON_PrintUnformatted(json);
-            sprintf(new_state.state, "%s", json_string);
-
-            cJSON_free(json_string);
-            cJSON_Delete(json);
-
-            new_state.changed = true;
-            sprintf(new_state.app_slug, "%s", APP_SLUG_LIGHT_SWITCH);
-        }
+        cJSON_free(json_string);
+        cJSON_Delete(json);
 
         last_position = current_position;
+        new_state.changed = true;
+        sprintf(new_state.app_slug, "%s", APP_SLUG_LIGHT_SWITCH);
     }
+
+    last_updated_ms = millis();
 
     first_run = true;
     return new_state;
